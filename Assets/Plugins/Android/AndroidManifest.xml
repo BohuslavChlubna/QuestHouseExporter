@@ -8,5 +8,14 @@
 
     <!-- Do not set application label here to avoid collisions with generated launcher/unityLibrary resources -->
     <application>
+        <!-- Ensure Unity activity is present for launcher -->
+        <activity android:name="com.unity3d.player.UnityPlayerActivity"
+                  android:label="QuestExporter"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
