@@ -6,7 +6,7 @@
     <!-- INTERNET permission may be added by Unity/library; keep only storage permission here to avoid duplicate declarations -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
-    <!-- Use a literal app label and request manifest merger to replace any other label values -->
-    <application android:label="QuestExporter" tools:replace="android:label">
+    <!-- Do not set application label here to avoid collisions with generated launcher/unityLibrary resources -->
+    <application>
     </application>
 </manifest>
