@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.yourcompany.questexport">
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- INTERNET permission may be added by Unity/library; keep only storage permission here to avoid duplicate declarations -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application android:label="QuestExporter" tools:replace="android:label">
