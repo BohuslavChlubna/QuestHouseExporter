@@ -6,6 +6,7 @@
     <!-- INTERNET permission may be added by Unity/library; keep only storage permission here to avoid duplicate declarations -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
-    <application android:label="QuestExporter" tools:replace="android:label">
+    <!-- Use the generated app_name string resource so manifest merger doesn't collide with unityLibrary -->
+    <application android:label="@string/app_name" tools:replace="android:label">
     </application>
 </manifest>
