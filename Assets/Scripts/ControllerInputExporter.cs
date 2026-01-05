@@ -2,21 +2,21 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR;
 
-[RequireComponent(typeof(ScannerExporter))]
+[RequireComponent(typeof(MRUKRoomExporter))]
 public class ControllerInputExporter : MonoBehaviour
 {
     public bool useRightController = true; // if false, use left
     public string exportButtonLabel = "Primary Button = Export";
-    public string toggleServerLabel = "Secondary Button = Toggle Server";
+    public string toggleServerLabel = "Secondary Button = Toggle View Mode";
 
-    ScannerExporter exporter;
+    MRUKRoomExporter exporter;
     InputDevice controller;
     bool lastPrimary = false;
     bool lastSecondary = false;
 
     void Start()
     {
-        exporter = GetComponent<ScannerExporter>();
+        exporter = GetComponent<MRUKRoomExporter>();
         FindController();
     }
 
@@ -49,8 +49,8 @@ public class ControllerInputExporter : MonoBehaviour
         {
             if (secondary && !lastSecondary)
             {
-                if (exporter.runHttpServer) exporter.StopHttpServer(); else exporter.StartHttpServer();
-                exporter.runHttpServer = !exporter.runHttpServer;
+                var vm = GetComponent<ViewModeController>();
+                if (vm != null) vm.ToggleMode();
                 SendHaptic(0.05f, 0.15f);
             }
             lastSecondary = secondary;

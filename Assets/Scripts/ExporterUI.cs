@@ -1,20 +1,21 @@
 using UnityEngine;
 
-[RequireComponent(typeof(ScannerExporter))]
+[RequireComponent(typeof(MRUKRoomExporter))]
 public class ExporterUI : MonoBehaviour
 {
-    ScannerExporter exporter;
-    void Start() => exporter = GetComponent<ScannerExporter>();
+    MRUKRoomExporter exporter;
+    void Start() => exporter = GetComponent<MRUKRoomExporter>();
 
     void OnGUI()
     {
         var rect = new Rect(10, Screen.height - 110, 220, 100);
         GUI.Box(rect, "Exporter");
         if (GUI.Button(new Rect(20, Screen.height - 90, 200, 30), "Export")) exporter.ExportAll();
-        if (GUI.Button(new Rect(20, Screen.height - 50, 200, 30), exporter.runHttpServer ? "Stop Server" : "Start Server"))
+        // HTTP server removed - use view mode toggle instead
+        var vm = GetComponent<ViewModeController>();
+        if (vm != null && GUI.Button(new Rect(20, Screen.height - 50, 200, 30), "Toggle View Mode"))
         {
-            if (exporter.runHttpServer) exporter.StopHttpServer(); else exporter.StartHttpServer();
-            exporter.runHttpServer = !exporter.runHttpServer;
+            vm.ToggleMode();
         }
         // Google Drive upload button
         if (exporter.enableDriveUpload && exporter.driveUploader != null)
