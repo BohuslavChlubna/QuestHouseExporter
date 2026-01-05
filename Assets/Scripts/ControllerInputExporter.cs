@@ -7,7 +7,7 @@ public class ControllerInputExporter : MonoBehaviour
 {
     public bool useRightController = true; // if false, use left
     public string exportButtonLabel = "Primary Button = Export";
-    public string toggleServerLabel = "Secondary Button = Toggle View Mode";
+    public string toggleServerLabel = "Secondary Button = Toggle View (AR/InRoom/DollHouse)";
 
     MRUKRoomExporter exporter;
     InputDevice controller;
@@ -71,7 +71,8 @@ public class ControllerInputExporter : MonoBehaviour
     void OnGUI()
     {
         GUI.color = Color.white;
-        GUI.Box(new Rect(10, 10, 360, 50), "Controller Exporter Controls");
-        GUI.Label(new Rect(20, 30, 340, 20), exportButtonLabel + "   |   " + toggleServerLabel);
+        GUI.Box(new Rect(10, 10, 450, 70), "Controller Exporter Controls");
+        GUI.Label(new Rect(20, 30, 430, 20), exportButtonLabel);
+        GUI.Label(new Rect(20, 50, 430, 20), toggleServerLabel);
     }
 }
