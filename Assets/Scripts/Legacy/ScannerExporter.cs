@@ -48,7 +48,7 @@ public class ScannerExporter : MonoBehaviour
         if (roomsRoot == null)
         {
             // find top-level rooms by tag or RoomMetadata
-            foreach (var go in FindObjectsOfType<RoomMetadata>())
+            foreach (var go in FindObjectsByType<RoomMetadata>(FindObjectsSortMode.None))
                 rooms.Add(go.gameObject);
         }
         else

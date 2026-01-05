@@ -56,7 +56,7 @@ public class WorldSpacePanel : MonoBehaviour
         float startY = panelSize.y / 2f - btnH / 2f - 0.05f;
 
         AddButton(root.transform, new Vector2(0f, startY - 0f * (btnH + spacing)), "Export", OnExportClicked);
-        AddButton(root.transform, new Vector2(0f, startY - 1 * (btnH + spacing)), "Toggle Server", OnToggleServerClicked);
+        AddButton(root.transform, new Vector2(0f, startY - 1 * (btnH + spacing)), "Toggle View Mode", OnToggleServerClicked);
         AddButton(root.transform, new Vector2(0f, startY - 2 * (btnH + spacing)), "Upload to Drive", OnUploadClicked);
         AddButton(root.transform, new Vector2(0f, startY - 3 * (btnH + spacing)), "Start Google Auth", OnStartAuthClicked);
 
@@ -141,8 +141,28 @@ public class WorldSpacePanel : MonoBehaviour
     }
 
     // Button callbacks
-    void OnExportClicked() { var se = FindObjectOfType<ScannerExporter>(); if (se != null) se.ExportAll(); }
-    void OnToggleServerClicked() { var se = FindObjectOfType<ScannerExporter>(); if (se != null) { if (se.runHttpServer) se.StopHttpServer(); else se.StartHttpServer(); se.runHttpServer = !se.runHttpServer; } }
-    void OnUploadClicked() { var se = FindObjectOfType<ScannerExporter>(); if (se != null && se.driveUploader != null) { var path = System.IO.Path.Combine(Application.persistentDataPath, se.exportFolder); se.driveUploader.StartUploadDirectory(path); } }
-    void OnStartAuthClicked() { var auth = FindObjectOfType<GoogleDeviceAuth>(); if (auth != null) auth.StartDeviceAuth(); }
+    void OnExportClicked() 
+    { 
+        var se = FindFirstObjectByType<MRUKRoomExporter>(); 
+        if (se != null) se.ExportAll(); 
+    }
+    void OnToggleServerClicked() 
+    { 
+        var vm = FindFirstObjectByType<ViewModeController>(); 
+        if (vm != null) vm.ToggleMode(); 
+    }
+    void OnUploadClicked() 
+    { 
+        var se = FindFirstObjectByType<MRUKRoomExporter>(); 
+        if (se != null && se.driveUploader != null) 
+        { 
+            var path = System.IO.Path.Combine(Application.persistentDataPath, se.exportFolder); 
+            se.driveUploader.StartUploadDirectory(path); 
+        } 
+    }
+    void OnStartAuthClicked() 
+    { 
+        var auth = FindFirstObjectByType<GoogleDeviceAuth>(); 
+        if (auth != null) auth.StartDeviceAuth(); 
+    }
 }

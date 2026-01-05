@@ -6,12 +6,12 @@ using System.IO;
 
 public class ExporterSetup
 {
-    [MenuItem("Tools/QuestExporter/Create Exporter Scene")]
+    [MenuItem("Tools/QuestHouseDesign/Create Scene")]
     public static void CreateExporterScene()
     {
         if (EditorApplication.isPlaying)
         {
-            EditorUtility.DisplayDialog("QuestExporter", "Cannot create scenes while in Play mode. Exit Play mode and try again.", "OK");
+            EditorUtility.DisplayDialog("QuestHouseDesign", "Cannot create scenes while in Play mode. Exit Play mode and try again.", "OK");
             return;
         }
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
@@ -23,33 +23,33 @@ public class ExporterSetup
         if (!Directory.Exists(sceneDir)) Directory.CreateDirectory(sceneDir);
         string scenePath = Path.Combine(sceneDir, "ExporterScene.unity");
         EditorSceneManager.SaveScene(scene, scenePath);
-        EditorUtility.DisplayDialog("QuestExporter", "Exporter scene created at " + scenePath, "OK");
+        EditorUtility.DisplayDialog("QuestHouseDesign", "Scene created at " + scenePath, "OK");
     }
 
-    [MenuItem("Tools/QuestExporter/Apply Player Settings")]
+    [MenuItem("Tools/QuestHouseDesign/Apply Player Settings")]
     public static void ApplyPlayerSettings()
     {
         // Android settings
-        PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
+        PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
-        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel23;
-        PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.veksco.questexport");
+        PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
+        PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.veksco.questhousedesign");
         // set company and product names
         PlayerSettings.companyName = "VeksCo";
-        PlayerSettings.productName = "QuestHouseExporter";
-        EditorUtility.DisplayDialog("QuestExporter", "Player settings applied. Please verify in Project Settings.", "OK");
+        PlayerSettings.productName = "QuestHouseDesign";
+        EditorUtility.DisplayDialog("QuestHouseDesign", "Player settings applied. Please verify in Project Settings.", "OK");
     }
 
-    [MenuItem("Tools/QuestExporter/Run Full Setup")]
+    [MenuItem("Tools/QuestHouseDesign/Run Full Setup")]
     public static void RunFullSetup()
     {
         if (EditorApplication.isPlaying)
         {
-            EditorUtility.DisplayDialog("QuestExporter", "Run Full Setup cannot be executed while in Play mode. Exit Play mode and try again.", "OK");
+            EditorUtility.DisplayDialog("QuestHouseDesign", "Run Full Setup cannot be executed while in Play mode. Exit Play mode and try again.", "OK");
             return;
         }
         CreateExporterScene();
         ApplyPlayerSettings();
-        EditorUtility.DisplayDialog("QuestExporter", "Full setup completed.", "OK");
+        EditorUtility.DisplayDialog("QuestHouseDesign", "Full setup completed.", "OK");
     }
 }

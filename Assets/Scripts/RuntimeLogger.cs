@@ -31,7 +31,7 @@ public static class RuntimeLogger
             if (string.IsNullOrEmpty(logPath))
             {
                 // fallback to a basic path
-                var basePath = Path.Combine(Application.persistentDataPath, "QuestHouseExport");
+                var basePath = Path.Combine(Application.persistentDataPath, "QuestHouseDesign");
                 if (!Directory.Exists(basePath)) Directory.CreateDirectory(basePath);
                 logPath = Path.Combine(basePath, "export_log.txt");
             }

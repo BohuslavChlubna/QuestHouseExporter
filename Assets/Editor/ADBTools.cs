@@ -8,9 +8,9 @@ using UnityEngine;
 public static class ADBTools
 {
     const string outputDir = "Builds/Android";
-    const string apkName = "QuestHouseExporter.apk";
+    const string apkName = "QuestHouseDesign.apk";
 
-    [MenuItem("Tools/QuestExporter/ADB/Build APK")]
+    [MenuItem("Tools/QuestHouseDesign/ADB/Build APK")]
     public static void BuildApk()
     {
         var scenes = EditorBuildSettings.scenes;
@@ -41,7 +41,7 @@ public static class ADBTools
             UnityEngine.Debug.LogError("Build failed: " + report.summary.result + " errors: " + report.summary.totalErrors);
     }
 
-    [MenuItem("Tools/QuestExporter/ADB/Set ADB Path")]
+    [MenuItem("Tools/QuestHouseDesign/ADB/Set ADB Path")]
     public static void SetAdbPath()
     {
         string cur = EditorPrefs.GetString("QuestExporter_ADBPath", "");
@@ -53,7 +53,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QuestExporter/ADB/Build & Install APK")]
+    [MenuItem("Tools/QuestHouseDesign/ADB/Build & Install APK")]
     public static void BuildAndInstall()
     {
         BuildApk();
@@ -85,8 +85,8 @@ public static class ADBTools
         {
             if (installOut != null && installOut.IndexOf("success", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                string packageId = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
-                if (string.IsNullOrEmpty(packageId)) packageId = "com.yourcompany.questexport";
+                string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
+                if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
                 string activity = packageId + "/com.unity3d.player.UnityPlayerActivity";
                 UnityEngine.Debug.Log("Starting app: " + activity);
                 var startOut = RunAdbCommand($"shell am start -n {activity}");
@@ -103,7 +103,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QuestExporter/ADB/Pull Exports from Device")]
+    [MenuItem("Tools/QuestHouseDesign/ADB/Pull Exports from Device")]
     public static void PullExports()
     {
         if (!IsAdbAvailable())
@@ -112,8 +112,8 @@ public static class ADBTools
             return;
         }
 
-        string packageId = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
-        if (string.IsNullOrEmpty(packageId)) packageId = "com.yourcompany.questexport";
+        string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
+        if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
         string remote = $"/sdcard/Android/data/{packageId}/files/QuestHouseExport";
         string local = Path.Combine(Environment.CurrentDirectory, "PulledExports");
         if (!Directory.Exists(local)) Directory.CreateDirectory(local);

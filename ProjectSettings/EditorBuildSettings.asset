@@ -8,4 +8,6 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/ExporterScene.unity
     guid: 8b3978233759e364c87c4433fc7ce7b4
-  m_configObjects: {}
+  m_configObjects:
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 83076d0361f095f418d3af4a87a4536a, type: 2}
+  m_UseUCBPForAssetBundles: 0
