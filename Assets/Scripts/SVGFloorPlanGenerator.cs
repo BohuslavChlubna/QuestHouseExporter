@@ -52,6 +52,9 @@ public static class SVGFloorPlanGenerator
         sb.AppendLine($"    .dimension {{ font-size: {(width * 0.03f):F2}px; fill: blue; }}");
         sb.AppendLine("    .dim-line { stroke: blue; stroke-width: 0.02; fill: none; }");
         sb.AppendLine("    .arrow { stroke: blue; stroke-width: 0.02; fill: none; marker-start: url(#arrowhead-start); marker-end: url(#arrowhead-end); }");
+        sb.AppendLine("    .window { fill: lightblue; stroke: blue; stroke-width: 0.03; }");
+        sb.AppendLine("    .door { fill: brown; stroke: darkbrown; stroke-width: 0.03; }");
+        sb.AppendLine("    .opening-label { font-size: 0.15px; fill: darkgreen; }");
         sb.AppendLine("  </style>");
         sb.AppendLine("  <defs>");
         sb.AppendLine($"    <marker id=\"arrowhead-end\" markerWidth=\"10\" markerHeight=\"10\" refX=\"9\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\">");
@@ -122,9 +125,53 @@ public static class SVGFloorPlanGenerator
                 
                 sb.AppendLine($"  <text class=\"dimension\" x=\"{dimMid.x:F2}\" y=\"{dimMid.y:F2}\" text-anchor=\"middle\" transform=\"rotate({angle:F1} {dimMid.x:F2} {dimMid.y:F2})\">{length:F2}m</text>");
             }
+            
+            // Draw windows and doors with dimensions
+            DrawRoomOpenings(room, sb);
         }
 
         sb.AppendLine("</svg>");
         File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
     }
-}
+    
+    static void DrawRoomOpenings(MRUKRoom room, StringBuilder sb)
+    {
+        var anchors = room.GetComponentsInChildren<MRUKAnchor>();
+        
+        foreach (var anchor in anchors)
+        {
+            if (anchor == null) continue;
+            
+            string label = anchor.Label?.ToString() ?? "";
+            bool isWindow = label.Contains("WINDOW") || label.Contains("Window");
+            bool isDoor = label.Contains("DOOR") || label.Contains("Door");
+            
+            if (!isWindow && !isDoor) continue;
+            
+            // Get 2D position relative to room
+            Vector3 pos3D = room.FloorAnchor.transform.InverseTransformPoint(anchor.transform.position);
+            Vector2 pos2D = new Vector2(pos3D.x, pos3D.z);
+            
+            // Get dimensions
+            float width = 0.5f;
+            float depth = 0.1f;
+            
+            if (anchor.VolumeBounds.HasValue)
+            {
+                width = anchor.VolumeBounds.Value.size.x;
+            }
+            
+            // Draw rectangle
+            string cssClass = isWindow ? "window" : "door";
+            float halfW = width / 2f;
+            float halfD = depth / 2f;
+            
+            // Transform back to floor anchor space
+            var boundary = room.FloorAnchor.PlaneBoundary2D;
+            if (boundary != null && boundary.Count > 0)
+            {
+                sb.AppendLine($"  <rect class=\"{cssClass}\" x=\"{pos2D.x - halfW:F2}\" y=\"{pos2D.y - halfD:F2}\" width=\"{width:F2}\" height=\"{depth:F2}\" />");
+                sb.AppendLine($"  <text class=\"opening-label\" x=\"{pos2D.x:F2}\" y=\"{pos2D.y + 0.3f:F2}\" text-anchor=\"middle\">{(isWindow ? "W" : "D")} {width:F2}m</text>");
+            }
+        }
+    }

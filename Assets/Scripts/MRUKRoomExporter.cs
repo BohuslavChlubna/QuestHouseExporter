@@ -15,7 +15,9 @@ public class MRUKRoomExporter : MonoBehaviour
     public string exportFolder = "QuestHouseDesign";
     public bool exportOBJ = true;
     public bool exportGLB = false;
+    public bool exportUnifiedGLTF = true;
     public bool exportSVGFloorPlans = true;
+    public bool exportDetailedExcel = true;
 
     [Header("Google Drive Upload")]
     public bool enableDriveUpload = false;
@@ -71,13 +73,28 @@ public class MRUKRoomExporter : MonoBehaviour
                     if (roomData != null) jsonList.Add(roomData);
                 }
 
-                // Export SVG floor plan for this floor
+            // Export SVG floor plan for this floor
                 if (exportSVGFloorPlans)
                 {
                     string svgPath = Path.Combine(basePath, $"Floor_{floorLevel}_plan.svg");
                     SVGFloorPlanGenerator.GenerateFloorPlan(floorRooms, svgPath, floorLevel);
                     RuntimeLogger.WriteLine($"  Exported SVG floor plan: {svgPath}");
                 }
+            }
+
+            // Export unified GLTF house model
+            if (exportUnifiedGLTF)
+            {
+                string gltfPath = Path.Combine(basePath, "UnifiedHouse.gltf");
+                GLTFHouseExporter.ExportUnifiedHouse(rooms, gltfPath);
+                RuntimeLogger.WriteLine($"Exported unified GLTF house: {gltfPath}");
+            }
+
+            // Export detailed Excel data
+            if (exportDetailedExcel)
+            {
+                DetailedExcelExporter.ExportToExcel(rooms, basePath);
+                RuntimeLogger.WriteLine($"Exported detailed Excel data to: {basePath}");
             }
 
             // Export summary files

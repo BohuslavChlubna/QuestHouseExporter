@@ -2,10 +2,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR;
 
+/// <summary>
+/// Controller input handler - deprecated in favor of VRControlPanel.
+/// This script is kept for backward compatibility but UI has been moved to 3D space.
+/// </summary>
 [RequireComponent(typeof(MRUKRoomExporter))]
 public class ControllerInputExporter : MonoBehaviour
 {
-    public bool useRightController = true; // if false, use left
+    public bool useRightController = true;
+    public bool enableLegacyUI = false; // Set to true to show old 2D UI
+    
     public string exportButtonLabel = "Primary Button = Export";
     public string toggleServerLabel = "Secondary Button = Toggle View (AR/InRoom/DollHouse)";
 
@@ -18,6 +24,11 @@ public class ControllerInputExporter : MonoBehaviour
     {
         exporter = GetComponent<MRUKRoomExporter>();
         FindController();
+        
+        if (!enableLegacyUI)
+        {
+            Debug.Log("ControllerInputExporter: Legacy 2D UI disabled. Using VRControlPanel for 3D UI.");
+        }
     }
 
     void FindController()
@@ -70,8 +81,10 @@ public class ControllerInputExporter : MonoBehaviour
 
     void OnGUI()
     {
+        if (!enableLegacyUI) return; // Skip if legacy UI disabled
+        
         GUI.color = Color.white;
-        GUI.Box(new Rect(10, 10, 450, 70), "Controller Exporter Controls");
+        GUI.Box(new Rect(10, 10, 450, 70), "Controller Exporter Controls (Legacy)");
         GUI.Label(new Rect(20, 30, 430, 20), exportButtonLabel);
         GUI.Label(new Rect(20, 50, 430, 20), toggleServerLabel);
     }

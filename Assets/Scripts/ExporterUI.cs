@@ -1,13 +1,20 @@
 using UnityEngine;
 
+/// <summary>
+/// Legacy 2D UI for exporter - deprecated in favor of VRControlPanel.
+/// Set enableLegacyUI to true to show this UI.
+/// </summary>
 [RequireComponent(typeof(MRUKRoomExporter))]
 public class ExporterUI : MonoBehaviour
 {
+    public bool enableLegacyUI = false;
+    
     MRUKRoomExporter exporter;
     void Start() => exporter = GetComponent<MRUKRoomExporter>();
 
     void OnGUI()
     {
+        if (!enableLegacyUI) return; // Skip if legacy UI disabled
         var rect = new Rect(10, Screen.height - 110, 220, 100);
         GUI.Box(rect, "Exporter");
         if (GUI.Button(new Rect(20, Screen.height - 90, 200, 30), "Export")) exporter.ExportAll();
