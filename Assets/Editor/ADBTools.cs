@@ -56,30 +56,61 @@ public static class ADBTools
     [MenuItem("Tools/QuestHouseDesign/ADB/Build & Install APK")]
     public static void BuildAndInstall()
     {
+        // Check device connection first
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH. Please install platform-tools or add adb to PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB executable not found. Please:\n1. Install Android Platform Tools\n2. Add platform-tools to PATH\n3. Or use Tools ? QuestHouseDesign ? ADB ? Set ADB Path", "OK");
+            return;
+        }
+
+        var devices = RunAdbCommand("devices");
+        bool hasDevice = devices.Contains("device") && !devices.Contains("unauthorized");
+        
+        if (!hasDevice)
+        {
+            UnityEngine.Debug.LogWarning("No Quest device detected. Output:\n" + devices);
+            if (!EditorUtility.DisplayDialog("No Device Detected", 
+                "No Quest device found via ADB.\n\nMake sure:\n• Quest is connected via USB\n• USB debugging is enabled\n• Authorization prompt is accepted on headset\n\nContinue with build anyway?", 
+                "Yes, Build Only", "Cancel"))
+            {
+                return;
+            }
+        }
+
         BuildApk();
         string apkPath = Path.Combine(outputDir, apkName);
         if (!File.Exists(apkPath))
         {
             UnityEngine.Debug.LogError("APK not found: " + apkPath);
+            EditorUtility.DisplayDialog("Build Failed", $"APK not found at:\n{apkPath}\n\nCheck Console for build errors.", "OK");
             return;
         }
 
-        if (!IsAdbAvailable())
+        // Re-check device before install
+        if (!hasDevice)
         {
-            UnityEngine.Debug.LogError("ADB not found in PATH. Please install platform-tools or add adb to PATH.");
+            UnityEngine.Debug.LogWarning("Skipping install - no device connected.");
+            EditorUtility.DisplayDialog("Build Complete", $"APK built successfully:\n{apkPath}\n\nInstall manually via SideQuest or connect Quest and retry.", "OK");
             return;
-        }
-
-        var devices = RunAdbCommand("devices");
-        if (!devices.Contains("device") && !devices.Contains("unauthorized"))
-        {
-            UnityEngine.Debug.LogWarning("No device detected by adb. Output:\n" + devices);
-            // Still attempt install; adb will error if no device
         }
 
         UnityEngine.Debug.Log("Installing APK to device...");
         var installOut = RunAdbCommand($"install -r \"{apkPath}\"");
         UnityEngine.Debug.Log("adb install output:\n" + installOut);
+        
+        // Check install result and show dialog
+        if (installOut != null && installOut.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            UnityEngine.Debug.Log("? Install successful");
+            EditorUtility.DisplayDialog("Install Complete", "QuestHouseDesign installed successfully on Quest!\n\nStarting app...", "OK");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning("Install may have failed. Check output above.");
+            EditorUtility.DisplayDialog("Install Issue", $"Install output:\n{installOut}\n\nCheck Console for details.", "OK");
+        }
+        
         // If install succeeded, try to start the app
         try
         {
@@ -108,7 +139,16 @@ public static class ADBTools
     {
         if (!IsAdbAvailable())
         {
-            UnityEngine.Debug.LogError("ADB not found in PATH. Please install platform-tools or add adb to PATH.");
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB not found. Install Android Platform Tools and add to PATH.", "OK");
+            return;
+        }
+
+        var devices = RunAdbCommand("devices");
+        if (!devices.Contains("device") || devices.Contains("unauthorized"))
+        {
+            UnityEngine.Debug.LogWarning("No device detected.");
+            EditorUtility.DisplayDialog("No Device", "Quest not connected or not authorized.\n\nConnect Quest via USB and enable USB debugging.", "OK");
             return;
         }
 
@@ -121,10 +161,23 @@ public static class ADBTools
         UnityEngine.Debug.Log($"Pulling exports from device: {remote} -> {local}");
         var outp = RunAdbCommand($"pull \"{remote}\" \"{local}\"");
         UnityEngine.Debug.Log("adb pull output:\n" + outp);
+        
         // Also try to pull log file if present
-        var remoteLog = $"/sdcard/Android/data/{packageId}/files/QuestHouseExport/export_log.txt";
-        var outp2 = RunAdbCommand($"pull \"{remoteLog}\" \"{local}\"  ");
+        var remoteLog = $"/sdcard/Android/data/{packageId}/files/QuestHouseDesign/export_log.txt";
+        var outp2 = RunAdbCommand($"pull \"{remoteLog}\" \"{local}\"");
         UnityEngine.Debug.Log("adb pull log output:\n" + outp2);
+
+        // Show result dialog
+        if (outp.Contains("pulled") || outp.Contains("file"))
+        {
+            EditorUtility.DisplayDialog("Pull Complete", $"Exports pulled to:\n{local}\n\nCheck folder for GLB/OBJ/SVG/JSON files.", "OK");
+            // Open folder in Explorer
+            System.Diagnostics.Process.Start("explorer.exe", local.Replace("/", "\\"));
+        }
+        else
+        {
+            EditorUtility.DisplayDialog("Pull Failed", $"Could not pull exports.\n\nMake sure you ran Export in the app first.\n\nOutput:\n{outp}", "OK");
+        }
     }
 
     static bool IsAdbAvailable()
