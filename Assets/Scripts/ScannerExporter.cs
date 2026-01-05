@@ -34,6 +34,13 @@ public class ScannerExporter : MonoBehaviour
 
     public void ExportAll()
     {
+        try
+        {
+            RuntimeLogger.Init(exportFolder);
+            RuntimeLogger.WriteLine("ExportAll started");
+        }
+        catch { }
+
         string basePath = Path.Combine(Application.persistentDataPath, exportFolder);
         Directory.CreateDirectory(basePath);
 
@@ -57,14 +64,25 @@ public class ScannerExporter : MonoBehaviour
 
         var jsonList = new List<Dictionary<string, object>>();
 
+        RuntimeLogger.WriteLine($"Found {rooms.Count} candidate rooms");
+
         foreach (var room in rooms)
         {
             var meta = room.GetComponent<RoomMetadata>();
             string rname = (meta != null && !string.IsNullOrEmpty(meta.roomName)) ? meta.roomName : room.name;
 
+            RuntimeLogger.WriteLine($"Processing room: {rname}");
             MeshFilter[] mfs = room.GetComponentsInChildren<MeshFilter>();
+            int meshCount = 0;
+            foreach (var mf in mfs) if (mf != null && mf.sharedMesh != null) meshCount++;
+            RuntimeLogger.WriteLine($"  MeshFilter count: {mfs.Length}, meshes present: {meshCount}");
+
             var combined = CombineMeshes(mfs);
-            if (combined == null) continue;
+            if (combined == null)
+            {
+                RuntimeLogger.WriteLine($"  Combined mesh is null for room {rname}, skipping");
+                continue;
+            }
 
             string safeName = MakeSafeFileName(rname);
             // append timestamp to file names to avoid overwriting previous exports
@@ -131,6 +149,7 @@ public class ScannerExporter : MonoBehaviour
         string jsonPath = Path.Combine(basePath, houseName + "_rooms.json");
         File.WriteAllText(jsonPath, MiniJSON.Serialize(jsonList));
 
+        RuntimeLogger.WriteLine($"Exported {rooms.Count} rooms to {basePath}");
         Debug.Log($"Exported {rooms.Count} rooms to {basePath}");
         // Also export a simple formatted Excel (SpreadsheetML) summary
         try

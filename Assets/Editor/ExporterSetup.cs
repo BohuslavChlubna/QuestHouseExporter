@@ -33,7 +33,10 @@ public class ExporterSetup
         PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel23;
-        PlayerSettings.applicationIdentifier = "com.yourcompany.questexport";
+        PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.veksco.questexport");
+        // set company and product names
+        PlayerSettings.companyName = "VeksCo";
+        PlayerSettings.productName = "QuestHouseExporter";
         EditorUtility.DisplayDialog("QuestExporter", "Player settings applied. Please verify in Project Settings.", "OK");
     }
 
