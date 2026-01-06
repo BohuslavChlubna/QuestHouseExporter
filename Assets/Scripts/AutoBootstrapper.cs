@@ -7,7 +7,6 @@ public class AutoBootstrapper : MonoBehaviour
     {
         Debug.Log("[AutoBootstrapper] Awake() called");
         
-        // Ensure there is a singleton GameObject with MRUKRoomExporter and components
         var existing = FindFirstObjectByType<MRUKRoomExporter>();
         if (existing == null)
         {
@@ -15,35 +14,40 @@ public class AutoBootstrapper : MonoBehaviour
             var go = new GameObject("QuestHouseDesign");
             
             Debug.Log("[AutoBootstrapper] Adding MRUKRoomExporter...");
-            // Core exporter
             var exporter = go.AddComponent<MRUKRoomExporter>();
             exporter.exportFolder = "QuestHouseDesign";
             exporter.exportOBJ = true;
             exporter.exportGLB = false;
             exporter.exportSVGFloorPlans = true;
 
-            // TODO: Re-enable these when we have proper shader support
-            // Debug.Log("[AutoBootstrapper] Adding ViewModeController and DollHouseVisualizer...");
-            // // View modes
-            // var viewMode = go.AddComponent<ViewModeController>();
-            // var dollHouse = go.AddComponent<DollHouseVisualizer>();
-            // viewMode.dollHouseRoot = new GameObject("DollHouseRoot");
-            // viewMode.dollHouseRoot.transform.SetParent(go.transform);
-            // dollHouse.transform.SetParent(viewMode.dollHouseRoot.transform);
+            Debug.Log("[AutoBootstrapper] Adding ViewModeController and DollHouseVisualizer...");
+            var dollHouseRoot = new GameObject("DollHouseRoot");
+            dollHouseRoot.transform.SetParent(go.transform);
+            var dollHouse = dollHouseRoot.AddComponent<DollHouseVisualizer>();
+            
+            var inRoomRoot = new GameObject("InRoomRoot");
+            inRoomRoot.transform.SetParent(go.transform);
+            var inRoomViz = inRoomRoot.AddComponent<InRoomWallVisualizer>();
+            
+            var viewMode = go.AddComponent<ViewModeController>();
+            viewMode.dollHouseRoot = dollHouseRoot;
+            viewMode.inRoomWallsRoot = inRoomRoot;
 
-            // Debug.Log("[AutoBootstrapper] Adding VRControlPanel...");
-            // // VR Control Panel
-            // var vrPanel = go.AddComponent<VRControlPanel>();
-            // vrPanel.roomExporter = exporter;
-            // vrPanel.viewModeController = viewMode;
-
-            Debug.Log("[AutoBootstrapper] Adding MenuController (simple UI)...");
-            // Simple UI Menu
+            Debug.Log("[AutoBootstrapper] Adding MenuController (will be shown after init)...");
             var menuController = go.AddComponent<MenuController>();
             menuController.roomExporter = exporter;
+            menuController.viewModeController = viewMode;
+            menuController.dollHouseVisualizer = dollHouse;
+            menuController.inRoomWallVisualizer = inRoomViz;
+            menuController.enabled = false;
 
-            // Note: SimpleHttpServer and RuntimeLogger are not MonoBehaviour components
-            // They are initialized automatically when needed (RuntimeLogger in MRUKRoomExporter)
+            Debug.Log("[AutoBootstrapper] Adding InitializationScreen...");
+            var initScreen = go.AddComponent<InitializationScreen>();
+            initScreen.Show(() => {
+                Debug.Log("[AutoBootstrapper] Initialization complete, enabling MenuController");
+                menuController.enabled = true;
+                menuController.Show();
+            });
 
             DontDestroyOnLoad(go);
             

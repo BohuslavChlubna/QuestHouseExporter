@@ -18,7 +18,13 @@ public class DollHouseVisualizer : MonoBehaviour
     {
         if (roomMaterial == null)
         {
-            roomMaterial = new Material(Shader.Find("Standard"));
+            var shader = Shader.Find("QuestHouse/UnlitColor") ?? Shader.Find("Unlit/Color");
+            if (shader == null)
+            {
+                Debug.LogError("[DollHouseVisualizer] Could not find Unlit/Color shader! Make sure shaders are included in build.");
+                return;
+            }
+            roomMaterial = new Material(shader);
             roomMaterial.color = new Color(0.8f, 0.8f, 0.9f, 0.5f);
         }
     }
@@ -122,3 +128,4 @@ public class DollHouseVisualizer : MonoBehaviour
         visualizedRooms.Clear();
     }
 }
+

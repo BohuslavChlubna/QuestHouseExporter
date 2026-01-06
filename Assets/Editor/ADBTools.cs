@@ -67,18 +67,6 @@ public static class ADBTools
         return report.summary.result;
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Set ADB Path")]
-    public static void SetAdbPath()
-    {
-        string cur = EditorPrefs.GetString("QuestExporter_ADBPath", "");
-        string sel = EditorUtility.OpenFilePanel("Select adb executable", string.IsNullOrEmpty(cur) ? "C:\\" : Path.GetDirectoryName(cur), "exe");
-        if (!string.IsNullOrEmpty(sel))
-        {
-            EditorPrefs.SetString("QuestExporter_ADBPath", sel);
-            UnityEngine.Debug.Log("ADB path set to: " + sel);
-        }
-    }
-
     [MenuItem("Tools/QuestHouseDesign/ADB/Build and Install APK")]
     public static void BuildAndInstall()
     {
@@ -86,7 +74,7 @@ public static class ADBTools
         if (!IsAdbAvailable())
         {
             UnityEngine.Debug.LogError("ADB not found in PATH. Please install platform-tools or add adb to PATH.");
-            EditorUtility.DisplayDialog("ADB Not Found", "ADB executable not found. Please:\n1. Install Android Platform Tools\n2. Add platform-tools to PATH\n3. Or use Tools ? QuestHouseDesign ? ADB ? Set ADB Path", "OK");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB executable not found. Please:\n1. Install Android Platform Tools\n2. Add platform-tools to PATH", "OK");
             return;
         }
 

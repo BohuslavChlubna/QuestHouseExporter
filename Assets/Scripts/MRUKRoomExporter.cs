@@ -19,32 +19,60 @@ public class MRUKRoomExporter : MonoBehaviour
     public bool exportSVGFloorPlans = true;
     public bool exportDetailedExcel = true;
 
+    /// <summary>
+    /// Export from cached room list (snapshot from MenuController).
+    /// This ensures exported data matches what user sees in visualizations.
+    /// </summary>
+    public void ExportFromCachedRooms(List<MRUKRoom> cachedRooms)
+    {
+        if (cachedRooms == null || cachedRooms.Count == 0)
+        {
+            RuntimeLogger.WriteLine("ERROR: No cached rooms to export.");
+            Debug.LogError("ExportFromCachedRooms: cachedRooms is null or empty.");
+            return;
+        }
+
+        PerformExport(cachedRooms);
+    }
+
+    /// <summary>
+    /// Legacy method - exports directly from MRUK.Instance.Rooms.
+    /// Kept for backwards compatibility.
+    /// </summary>
     public void ExportAll()
+    {
+        if (MRUK.Instance == null)
+        {
+            RuntimeLogger.WriteLine("ERROR: MRUK.Instance is null. Ensure MRUK is initialized in the scene.");
+            Debug.LogError("MRUK.Instance is null. Add MRUK component to scene.");
+            return;
+        }
+
+        var rooms = MRUK.Instance.Rooms;
+        if (rooms == null || rooms.Count == 0)
+        {
+            RuntimeLogger.WriteLine("No rooms found in MRUK.Instance.Rooms. User may need to scan space first.");
+            Debug.LogWarning("No rooms found. Scan the space in Quest Settings first.");
+            return;
+        }
+
+        PerformExport(rooms);
+    }
+
+    /// <summary>
+    /// Core export logic - works with any list of MRUKRooms.
+    /// </summary>
+    void PerformExport(List<MRUKRoom> rooms)
     {
         try
         {
             RuntimeLogger.Init(exportFolder);
-            RuntimeLogger.WriteLine("=== MRUKRoomExporter.ExportAll started ===");
+            RuntimeLogger.WriteLine("=== MRUKRoomExporter.PerformExport started ===");
 
             string basePath = Path.Combine(Application.persistentDataPath, exportFolder);
             Directory.CreateDirectory(basePath);
 
-            if (MRUK.Instance == null)
-            {
-                RuntimeLogger.WriteLine("ERROR: MRUK.Instance is null. Ensure MRUK is initialized in the scene.");
-                Debug.LogError("MRUK.Instance is null. Add MRUK component to scene.");
-                return;
-            }
-
-            var rooms = MRUK.Instance.Rooms;
-            if (rooms == null || rooms.Count == 0)
-            {
-                RuntimeLogger.WriteLine("No rooms found in MRUK.Instance.Rooms. User may need to scan space first.");
-                Debug.LogWarning("No rooms found. Scan the space in Quest Settings first.");
-                return;
-            }
-
-            RuntimeLogger.WriteLine($"Found {rooms.Count} rooms in MRUK");
+            RuntimeLogger.WriteLine($"Found {rooms.Count} rooms to export");
 
             // Group rooms by floor level (based on floor anchor Y position)
             var floorGroups = GroupRoomsByFloor(rooms);

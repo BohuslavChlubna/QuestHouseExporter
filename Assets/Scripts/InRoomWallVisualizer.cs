@@ -10,13 +10,18 @@ public class InRoomWallVisualizer : MonoBehaviour
 {
     [Header("Wall Visualization Settings")]
     public Material wallMaterial;
-    public Color wallColor = new Color(0.2f, 0.6f, 1.0f, 0.8f); // bright blue
+    public Color wallColor = new Color(1f, 1f, 1f, 0.8f); // white walls
+    public Color windowColor = new Color(0.2f, 0.5f, 1.0f, 0.6f); // blue windows
+    public Color doorColor = new Color(0.6f, 0.3f, 0.1f, 0.8f); // brown doors
+    public Color furnitureColor = new Color(0.8f, 0.8f, 0.2f, 0.5f); // yellow furniture
     public float wallLineWidth = 0.02f; // thickness of wall lines in meters
     public float wallHeight = 2.5f; // default wall height if not detected
 
     [Header("Advanced Settings")]
     public bool showCeiling = false;
     public bool showFloor = true;
+    public bool showFurniture = true;
+    public bool showWindowsAndDoors = true;
     public float floorOpacity = 0.1f;
 
     List<GameObject> visualizedWalls = new List<GameObject>();
@@ -25,15 +30,18 @@ public class InRoomWallVisualizer : MonoBehaviour
     {
         if (wallMaterial == null)
         {
-            wallMaterial = new Material(Shader.Find("Standard"));
-            wallMaterial.SetFloat("_Mode", 3); // Transparent
-            wallMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            wallMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            wallMaterial.SetInt("_ZWrite", 0);
-            wallMaterial.DisableKeyword("_ALPHATEST_ON");
-            wallMaterial.EnableKeyword("_ALPHABLEND_ON");
-            wallMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            wallMaterial.renderQueue = 3000;
+            var shader = Shader.Find("QuestHouse/UnlitColor");
+            if (shader == null)
+            {
+                // Fallback to standard Unlit/Color if custom shader not found
+                shader = Shader.Find("Unlit/Color");
+            }
+            if (shader == null)
+            {
+                Debug.LogError("[InRoomWallVisualizer] Could not find shader! Make sure shaders are included in build.");
+                return;
+            }
+            wallMaterial = new Material(shader);
         }
     }
 
@@ -97,6 +105,12 @@ public class InRoomWallVisualizer : MonoBehaviour
         if (showCeiling && room.CeilingAnchor != null)
         {
             CreateCeilingOutline(boundary, roomWorldPos, roomWorldRot, detectedHeight);
+        }
+
+        // Visualize room anchors (windows, doors, furniture)
+        if (showWindowsAndDoors || showFurniture)
+        {
+            VisualizeRoomAnchors(room);
         }
 
         return wallCount;
@@ -224,6 +238,106 @@ public class InRoomWallVisualizer : MonoBehaviour
         mr.material = mat;
 
         visualizedWalls.Add(ceilingObj);
+    }
+
+    void VisualizeRoomAnchors(MRUKRoom room)
+    {
+        foreach (var anchor in room.Anchors)
+        {
+            if (anchor == room.FloorAnchor || anchor == room.CeilingAnchor)
+                continue;
+
+            Color anchorColor = wallColor;
+            bool shouldVisualize = false;
+
+            // Determine color based on anchor label
+            if (anchor.Label.HasFlag(MRUKAnchor.SceneLabels.WINDOW_FRAME))
+            {
+                anchorColor = windowColor;
+                shouldVisualize = showWindowsAndDoors;
+            }
+            else if (anchor.Label.HasFlag(MRUKAnchor.SceneLabels.DOOR_FRAME))
+            {
+                anchorColor = doorColor;
+                shouldVisualize = showWindowsAndDoors;
+            }
+            else if (anchor.Label.HasFlag(MRUKAnchor.SceneLabels.TABLE) ||
+                     anchor.Label.HasFlag(MRUKAnchor.SceneLabels.COUCH) ||
+                     anchor.Label.HasFlag(MRUKAnchor.SceneLabels.STORAGE) ||
+                     anchor.Label.HasFlag(MRUKAnchor.SceneLabels.BED) ||
+                     anchor.Label.HasFlag(MRUKAnchor.SceneLabels.SCREEN) ||
+                     anchor.Label.HasFlag(MRUKAnchor.SceneLabels.LAMP))
+            {
+                anchorColor = furnitureColor;
+                shouldVisualize = showFurniture;
+            }
+
+            if (!shouldVisualize)
+                continue;
+
+            // Create visualization box for the anchor
+            CreateAnchorBox(anchor, anchorColor);
+        }
+    }
+
+    void CreateAnchorBox(MRUKAnchor anchor, Color color)
+    {
+        GameObject boxObj = new GameObject($"Anchor_{anchor.Label}");
+        boxObj.transform.SetParent(transform, false);
+        boxObj.transform.position = anchor.transform.position;
+        boxObj.transform.rotation = anchor.transform.rotation;
+
+        // Get anchor bounds
+        Vector3 size = anchor.VolumeBounds.HasValue ? anchor.VolumeBounds.Value.size : Vector3.one * 0.5f;
+
+        // Create simple box mesh
+        Mesh mesh = CreateBoxMesh(size);
+        var mf = boxObj.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+
+        var mr = boxObj.AddComponent<MeshRenderer>();
+        Material mat = new Material(wallMaterial);
+        mat.color = color;
+        mr.material = mat;
+
+        visualizedWalls.Add(boxObj);
+    }
+
+    Mesh CreateBoxMesh(Vector3 size)
+    {
+        Mesh mesh = new Mesh();
+        Vector3 hs = size * 0.5f; // half size
+
+        Vector3[] vertices = new Vector3[]
+        {
+            // Front face
+            new Vector3(-hs.x, -hs.y, hs.z), new Vector3(hs.x, -hs.y, hs.z), new Vector3(hs.x, hs.y, hs.z), new Vector3(-hs.x, hs.y, hs.z),
+            // Back face
+            new Vector3(-hs.x, -hs.y, -hs.z), new Vector3(-hs.x, hs.y, -hs.z), new Vector3(hs.x, hs.y, -hs.z), new Vector3(hs.x, -hs.y, -hs.z),
+            // Top face
+            new Vector3(-hs.x, hs.y, hs.z), new Vector3(hs.x, hs.y, hs.z), new Vector3(hs.x, hs.y, -hs.z), new Vector3(-hs.x, hs.y, -hs.z),
+            // Bottom face
+            new Vector3(-hs.x, -hs.y, hs.z), new Vector3(-hs.x, -hs.y, -hs.z), new Vector3(hs.x, -hs.y, -hs.z), new Vector3(hs.x, -hs.y, hs.z),
+            // Left face
+            new Vector3(-hs.x, -hs.y, hs.z), new Vector3(-hs.x, hs.y, hs.z), new Vector3(-hs.x, hs.y, -hs.z), new Vector3(-hs.x, -hs.y, -hs.z),
+            // Right face
+            new Vector3(hs.x, -hs.y, hs.z), new Vector3(hs.x, -hs.y, -hs.z), new Vector3(hs.x, hs.y, -hs.z), new Vector3(hs.x, hs.y, hs.z)
+        };
+
+        int[] triangles = new int[]
+        {
+            0, 2, 1, 0, 3, 2,   // Front
+            4, 6, 5, 4, 7, 6,   // Back
+            8, 10, 9, 8, 11, 10, // Top
+            12, 14, 13, 12, 15, 14, // Bottom
+            16, 18, 17, 16, 19, 18, // Left
+            20, 22, 21, 20, 23, 22  // Right
+        };
+
+        mesh.vertices = vertices;
+        mesh.triangles = triangles;
+        mesh.RecalculateNormals();
+        return mesh;
     }
 
     public void ClearWalls()
