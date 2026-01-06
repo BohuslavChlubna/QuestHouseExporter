@@ -58,6 +58,13 @@ public static class MetaXRAutoFix
         Debug.Log("? Disabled Multithreaded Rendering");
         changed = true;
 
+        // 8. Set Active Input Handling to Input Manager only (avoid "Both" on Android)
+        #if UNITY_2020_1_OR_NEWER
+        PlayerSettings.SetPropertyInt("ActiveInputHandler", 0, BuildTargetGroup.Android); // 0 = Input Manager only
+        Debug.Log("? Set Active Input Handling to Input Manager only");
+        changed = true;
+        #endif
+
         if (changed)
         {
             AssetDatabase.SaveAssets();
