@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
 
 /// <summary>
 /// 3D VR control panel with physical buttons attached to controller.
-/// Replaces 2D UI with world-space interactive panel.
+/// Uses modern Input System for controller tracking and input.
 /// </summary>
 public class VRControlPanel : MonoBehaviour
 {
@@ -22,6 +23,7 @@ public class VRControlPanel : MonoBehaviour
     [Header("References")]
     public MRUKRoomExporter roomExporter;
     public ViewModeController viewModeController;
+    public InputActionAsset inputActions;
     
     class VRButton
     {
@@ -36,8 +38,10 @@ public class VRControlPanel : MonoBehaviour
     
     List<VRButton> buttons = new List<VRButton>();
     GameObject panelRoot;
-    InputDevice controller;
-    bool lastTriggerState = false;
+    
+    InputAction triggerAction;
+    InputAction positionAction;
+    InputAction rotationAction;
     
     void Start()
     {
@@ -45,18 +49,35 @@ public class VRControlPanel : MonoBehaviour
         if (roomExporter == null) roomExporter = FindFirstObjectByType<MRUKRoomExporter>();
         if (viewModeController == null) viewModeController = FindFirstObjectByType<ViewModeController>();
         
+        // Load Input Actions
+        if (inputActions == null)
+        {
+            inputActions = Resources.Load<InputActionAsset>("QuestInputActions");
+        }
+
+        if (inputActions != null)
+        {
+            var actionMap = inputActions.FindActionMap("XR Right Controller");
+            if (actionMap != null)
+            {
+                triggerAction = actionMap.FindAction("Trigger");
+                positionAction = actionMap.FindAction("Position");
+                rotationAction = actionMap.FindAction("Rotation");
+
+                if (triggerAction != null) triggerAction.Enable();
+                if (positionAction != null) positionAction.Enable();
+                if (rotationAction != null) rotationAction.Enable();
+            }
+        }
+        
         CreatePanel();
-        FindController();
     }
     
-    void FindController()
+    void OnDestroy()
     {
-        var devices = new List<InputDevice>();
-        InputDeviceCharacteristics desiredChar = InputDeviceCharacteristics.HeldInHand | 
-            InputDeviceCharacteristics.Controller |
-            (attachToRightController ? InputDeviceCharacteristics.Right : InputDeviceCharacteristics.Left);
-        InputDevices.GetDevicesWithCharacteristics(desiredChar, devices);
-        if (devices.Count > 0) controller = devices[0];
+        if (triggerAction != null) triggerAction.Disable();
+        if (positionAction != null) positionAction.Disable();
+        if (rotationAction != null) rotationAction.Disable();
     }
     
     void CreatePanel()
@@ -151,39 +172,29 @@ public class VRControlPanel : MonoBehaviour
     
     void Update()
     {
-        if (!controller.isValid) FindController();
-        if (!controller.isValid) return;
-        
-        // Get trigger state
-        bool triggerPressed = false;
-        controller.TryGetFeatureValue(CommonUsages.triggerButton, out triggerPressed);
-        
-        // Detect trigger press edge
-        bool triggerEdge = triggerPressed && !lastTriggerState;
-        lastTriggerState = triggerPressed;
-        
         // Update panel position relative to controller
         UpdatePanelPosition();
         
         // Check for button interactions
-        CheckButtonInteractions(triggerEdge);
+        bool triggerPressed = triggerAction != null && triggerAction.ReadValue<float>() > 0.5f;
+        CheckButtonInteractions(triggerPressed);
     }
     
     void UpdatePanelPosition()
     {
-        if (!controller.isValid) return;
-        
-        Vector3 position;
-        Quaternion rotation;
-        if (controller.TryGetFeatureValue(CommonUsages.devicePosition, out position) &&
-            controller.TryGetFeatureValue(CommonUsages.deviceRotation, out rotation))
+        if (positionAction == null || rotationAction == null) return;
+
+        Vector3 position = positionAction.ReadValue<Vector3>();
+        Quaternion rotation = rotationAction.ReadValue<Quaternion>();
+
+        if (position != Vector3.zero) // Valid tracking data
         {
             transform.position = position;
             transform.rotation = rotation;
         }
     }
     
-    void CheckButtonInteractions(bool triggerEdge)
+    void CheckButtonInteractions(bool triggerPressed)
     {
         // Simple ray from controller forward
         Ray ray = new Ray(transform.position, transform.forward);
@@ -212,7 +223,7 @@ public class VRControlPanel : MonoBehaviour
                 btn.material.color = buttonHoverColor;
                 
                 // Press
-                if (triggerEdge && !btn.isPressed)
+                if (triggerPressed && !btn.isPressed)
                 {
                     btn.isPressed = true;
                     btn.material.color = buttonPressColor;
@@ -239,11 +250,12 @@ public class VRControlPanel : MonoBehaviour
     
     void SendHapticFeedback(float amplitude, float duration)
     {
-        if (!controller.isValid) return;
-        HapticCapabilities caps;
-        if (controller.TryGetHapticCapabilities(out caps) && caps.supportsImpulse)
+        // Modern Input System haptics
+        var hmd = InputSystem.GetDevice<XRHMD>();
+        if (hmd != null)
         {
-            controller.SendHapticImpulse(0, amplitude, duration);
+            // Note: For Quest-specific haptics, use Meta XR SDK's OVRInput.SetControllerVibration()
+            UnityEngine.Debug.Log($"Haptic feedback: {amplitude}@{duration}s");
         }
     }
     

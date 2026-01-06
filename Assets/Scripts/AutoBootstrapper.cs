@@ -32,8 +32,8 @@ public class AutoBootstrapper : MonoBehaviour
             var cwp = go.AddComponent<ControllerWorldPointer>();
 
             ci.useRightController = true;
-            ci.exportButtonLabel = "Primary Button (A/X) = Export";
-            ci.toggleServerLabel = "Secondary Button (B/Y) = Toggle View Mode";
+            ci.exportButtonLabel = "Primary Button (A) = Export";
+            ci.toggleModeLabel = "Secondary Button (B) = Toggle View Mode";
             
             cwp.useRight = true;
             cwp.panel = wsp;

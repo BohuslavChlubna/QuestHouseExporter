@@ -58,12 +58,10 @@ public static class MetaXRAutoFix
         Debug.Log("? Disabled Multithreaded Rendering");
         changed = true;
 
-        // 8. Set Active Input Handling to Input Manager only (avoid "Both" on Android)
-        #if UNITY_2020_1_OR_NEWER
-        PlayerSettings.SetPropertyInt("ActiveInputHandler", 0, BuildTargetGroup.Android); // 0 = Input Manager only
-        Debug.Log("? Set Active Input Handling to Input Manager only");
-        changed = true;
-        #endif
+        // 8. Set Active Input Handling to Input System (new)
+        // Note: In Unity 6, use Project Settings UI or EditorUserBuildSettings
+        // Manual step required: Edit ? Project Settings ? Player ? Active Input Handling ? "Input System Package (New)"
+        Debug.Log("? Manual: Set Project Settings ? Player ? Active Input Handling to 'Input System Package (New)'");
 
         if (changed)
         {

@@ -19,6 +19,7 @@ public static class ADBTools
         if (enabled.Count == 0)
         {
             UnityEngine.Debug.LogError("No enabled scenes in Build Settings.");
+            EditorUtility.DisplayDialog("Build Error", "No enabled scenes in Build Settings.\n\nAdd your scene to Build Settings first:\nFile ? Build Settings ? Add Open Scenes", "OK");
             return;
         }
 
@@ -35,10 +36,17 @@ public static class ADBTools
 
         UnityEngine.Debug.Log("Starting build to: " + apkPath);
         var report = BuildPipeline.BuildPlayer(opts);
+        
         if (report.summary.result == BuildResult.Succeeded)
+        {
             UnityEngine.Debug.Log("Build succeeded: " + apkPath);
+            EditorUtility.DisplayDialog("Build Complete", $"APK built successfully:\n{apkPath}", "OK");
+        }
         else
+        {
             UnityEngine.Debug.LogError("Build failed: " + report.summary.result + " errors: " + report.summary.totalErrors);
+            EditorUtility.DisplayDialog("Build Failed", $"Build failed with {report.summary.totalErrors} error(s).\n\nResult: {report.summary.result}\n\nCheck Console for details.", "OK");
+        }
     }
 
     [MenuItem("Tools/QuestHouseDesign/ADB/Set ADB Path")]
@@ -79,13 +87,21 @@ public static class ADBTools
         }
 
         BuildApk();
+        
+        // Wait a moment for build dialog to close
+        System.Threading.Thread.Sleep(500);
+        
         string apkPath = Path.Combine(outputDir, apkName);
         if (!File.Exists(apkPath))
         {
-            UnityEngine.Debug.LogError("APK not found: " + apkPath);
-            EditorUtility.DisplayDialog("Build Failed", $"APK not found at:\n{apkPath}\n\nCheck Console for build errors.", "OK");
+            UnityEngine.Debug.LogError("APK not found after build: " + apkPath);
+            EditorUtility.DisplayDialog("Build Failed", 
+                $"APK was not created.\n\nExpected location:\n{apkPath}\n\nPossible reasons:\n• Build failed (check Console)\n• No scenes in Build Settings\n• Build was cancelled", 
+                "OK");
             return;
         }
+
+        UnityEngine.Debug.Log($"APK found at: {apkPath} ({new FileInfo(apkPath).Length / 1024 / 1024} MB)");
 
         // Re-check device before install
         if (!hasDevice)

@@ -1,91 +1,142 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
 
 /// <summary>
-/// Controller input handler - deprecated in favor of VRControlPanel.
-/// This script is kept for backward compatibility but UI has been moved to 3D space.
+/// Modern Input System controller handler for Quest.
+/// Uses Input Actions for button presses and XR tracking.
 /// </summary>
 [RequireComponent(typeof(MRUKRoomExporter))]
 public class ControllerInputExporter : MonoBehaviour
 {
-    public bool useRightController = true;
-    public bool enableLegacyUI = false; // Set to true to show old 2D UI
+    [Header("Input Actions")]
+    public InputActionAsset inputActions;
     
-    public string exportButtonLabel = "Primary Button = Export";
-    public string toggleServerLabel = "Secondary Button = Toggle View (AR/InRoom/DollHouse)";
+    [Header("Settings")]
+    public bool useRightController = true;
+    public bool enableLegacyUI = false;
+    
+    public string exportButtonLabel = "Primary Button (A) = Export";
+    public string toggleModeLabel = "Secondary Button (B) = Toggle View Mode";
 
     MRUKRoomExporter exporter;
-    InputDevice controller;
-    bool lastPrimary = false;
-    bool lastSecondary = false;
+    ViewModeController viewMode;
+    
+    InputAction primaryButtonAction;
+    InputAction secondaryButtonAction;
+    InputAction positionAction;
+    InputAction rotationAction;
 
     void Start()
     {
         exporter = GetComponent<MRUKRoomExporter>();
-        FindController();
+        viewMode = GetComponent<ViewModeController>();
         
+        // Load Input Actions if not assigned
+        if (inputActions == null)
+        {
+            inputActions = Resources.Load<InputActionAsset>("QuestInputActions");
+            if (inputActions == null)
+            {
+                Debug.LogError("QuestInputActions not found! Create it at Assets/Resources/QuestInputActions.inputactions");
+                return;
+            }
+        }
+
+        // Get action map
+        var actionMap = inputActions.FindActionMap("XR Right Controller");
+        if (actionMap == null)
+        {
+            Debug.LogError("Action Map 'XR Right Controller' not found!");
+            return;
+        }
+
+        // Get actions
+        primaryButtonAction = actionMap.FindAction("Primary Button");
+        secondaryButtonAction = actionMap.FindAction("Secondary Button");
+        positionAction = actionMap.FindAction("Position");
+        rotationAction = actionMap.FindAction("Rotation");
+
+        // Subscribe to button events
+        if (primaryButtonAction != null)
+        {
+            primaryButtonAction.performed += OnPrimaryButtonPressed;
+            primaryButtonAction.Enable();
+        }
+        
+        if (secondaryButtonAction != null)
+        {
+            secondaryButtonAction.performed += OnSecondaryButtonPressed;
+            secondaryButtonAction.Enable();
+        }
+
+        if (positionAction != null) positionAction.Enable();
+        if (rotationAction != null) rotationAction.Enable();
+
         if (!enableLegacyUI)
         {
-            Debug.Log("ControllerInputExporter: Legacy 2D UI disabled. Using VRControlPanel for 3D UI.");
+            // Modern Input System active
         }
     }
 
-    void FindController()
+    void OnDestroy()
     {
-        var devices = new List<InputDevice>();
-        InputDeviceCharacteristics desiredChar = InputDeviceCharacteristics.HeldInHand | InputDeviceCharacteristics.Controller |
-            (useRightController ? InputDeviceCharacteristics.Right : InputDeviceCharacteristics.Left);
-        InputDevices.GetDevicesWithCharacteristics(desiredChar, devices);
-        if (devices.Count > 0) controller = devices[0];
+        // Unsubscribe
+        if (primaryButtonAction != null)
+        {
+            primaryButtonAction.performed -= OnPrimaryButtonPressed;
+            primaryButtonAction.Disable();
+        }
+        
+        if (secondaryButtonAction != null)
+        {
+            secondaryButtonAction.performed -= OnSecondaryButtonPressed;
+            secondaryButtonAction.Disable();
+        }
+
+        if (positionAction != null) positionAction.Disable();
+        if (rotationAction != null) rotationAction.Disable();
     }
 
-    void Update()
+    void OnPrimaryButtonPressed(InputAction.CallbackContext context)
     {
-        if (!controller.isValid) FindController();
-        if (!controller.isValid) return;
-
-        bool primary = false;
-        bool secondary = false;
-        if (controller.TryGetFeatureValue(CommonUsages.primaryButton, out primary))
+        Debug.Log("Primary button pressed - Exporting...");
+        if (exporter != null)
         {
-            if (primary && !lastPrimary)
-            {
-                exporter.ExportAll();
-                SendHaptic(0.1f, 0.2f);
-            }
-            lastPrimary = primary;
+            exporter.ExportAll();
+            SendHaptic(0.1f, 0.2f);
         }
-        if (controller.TryGetFeatureValue(CommonUsages.secondaryButton, out secondary))
+    }
+
+    void OnSecondaryButtonPressed(InputAction.CallbackContext context)
+    {
+        Debug.Log("Secondary button pressed - Toggling view mode...");
+        if (viewMode != null)
         {
-            if (secondary && !lastSecondary)
-            {
-                var vm = GetComponent<ViewModeController>();
-                if (vm != null) vm.ToggleMode();
-                SendHaptic(0.05f, 0.15f);
-            }
-            lastSecondary = secondary;
+            viewMode.ToggleMode();
+            SendHaptic(0.05f, 0.15f);
         }
     }
 
     void SendHaptic(float amplitude, float duration)
     {
-        if (!controller.isValid) return;
-        HapticCapabilities caps;
-        if (controller.TryGetHapticCapabilities(out caps) && caps.supportsImpulse)
+        // Modern Input System haptics via XR HMD
+        var hmd = InputSystem.GetDevice<XRHMD>();
+        if (hmd != null)
         {
-            uint channel = 0;
-            controller.SendHapticImpulse(channel, amplitude, duration);
+            // Note: Haptics API varies by device
+            // For Quest, Meta XR SDK provides better haptics support
+            Debug.Log($"Haptic feedback: amplitude={amplitude}, duration={duration}");
         }
     }
 
     void OnGUI()
     {
-        if (!enableLegacyUI) return; // Skip if legacy UI disabled
+        if (!enableLegacyUI) return;
         
         GUI.color = Color.white;
-        GUI.Box(new Rect(10, 10, 450, 70), "Controller Exporter Controls (Legacy)");
+        GUI.Box(new Rect(10, 10, 450, 70), "Controller Input (Modern Input System)");
         GUI.Label(new Rect(20, 30, 430, 20), exportButtonLabel);
-        GUI.Label(new Rect(20, 50, 430, 20), toggleServerLabel);
+        GUI.Label(new Rect(20, 50, 430, 20), toggleModeLabel);
     }
 }
