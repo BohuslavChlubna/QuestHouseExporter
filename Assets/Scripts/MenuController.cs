@@ -158,7 +158,7 @@ public class MenuController : MonoBehaviour
         
         if (roomExporter != null)
         {
-            roomExporter.ExportAllRooms();
+            roomExporter.ExportAll();
             statusText.text = "Export complete! Check logs.";
         }
         else
