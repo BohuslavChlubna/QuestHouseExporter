@@ -137,7 +137,8 @@ public static class DetailedExcelExporter
             if (anchor == null) continue;
             
             // Check anchor label/type
-            string label = anchor.Label?.ToString() ?? "";
+            var labelEnum = anchor.Label;
+            string label = labelEnum.ToString();
             
             if (label.Contains("WINDOW") || label.Contains("Window"))
             {

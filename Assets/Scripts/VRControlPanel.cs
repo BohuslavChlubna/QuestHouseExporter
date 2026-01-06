@@ -189,7 +189,6 @@ public class VRControlPanel : MonoBehaviour
         Ray ray = new Ray(transform.position, transform.forward);
         RaycastHit hit;
         
-        bool hitAnyButton = false;
         VRButton hitButton = null;
         
         if (Physics.Raycast(ray, out hit, 0.5f))
@@ -199,7 +198,6 @@ public class VRControlPanel : MonoBehaviour
                 if (hit.collider != null && hit.collider.gameObject == btn.gameObject)
                 {
                     hitButton = btn;
-                    hitAnyButton = true;
                     break;
                 }
             }

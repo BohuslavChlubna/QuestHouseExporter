@@ -6,8 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/ExporterScene.unity
-    guid: 8b3978233759e364c87c4433fc7ce7b4
+    path: Assets/Scenes/QuestHouseDesign.unity
+    guid: 97fcf2262f33c5d4b983e45d04831ef2
   m_configObjects:
+    com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 83076d0361f095f418d3af4a87a4536a, type: 2}
   m_UseUCBPForAssetBundles: 0
