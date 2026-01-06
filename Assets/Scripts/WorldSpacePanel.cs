@@ -30,10 +30,9 @@ public class WorldSpacePanel : MonoBehaviour
         // Disable in Editor - only works with VR controllers
         Debug.Log("WorldSpacePanel: Disabled in Editor (requires VR headset with controllers)");
         gameObject.SetActive(false);
-        return;
-        #endif
-        
+        #else
         CreatePanel();
+        #endif
     }
 
     void CreatePanel()
