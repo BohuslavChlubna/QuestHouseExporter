@@ -112,11 +112,11 @@ public static class ADBTools
         }
         else if (isWireless)
         {
-            UnityEngine.Debug.Log("?? Using wireless ADB connection");
+            UnityEngine.Debug.Log("[WiFi] Using wireless ADB connection");
         }
         else
         {
-            UnityEngine.Debug.Log("?? Using USB connection");
+            UnityEngine.Debug.Log("[USB] Using USB connection");
         }
 
         // Build silently (no intermediate dialog)
@@ -158,7 +158,7 @@ public static class ADBTools
         // Check install result (no success dialog, only log)
         if (installOut != null && installOut.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0)
         {
-            UnityEngine.Debug.Log("? Install successful - starting app...");
+            UnityEngine.Debug.Log("[SUCCESS] Install successful - starting app...");
         }
         else
         {
@@ -197,14 +197,14 @@ public static class ADBTools
         // Final summary dialog
         if (installSuccess)
         {
-            string message = "? Build complete\n? Installed on Quest";
+            string message = "[OK] Build complete\n[OK] Installed on Quest";
             if (appStarted)
             {
-                message += "\n? App started\n\nCheck your Quest headset!";
+                message += "\n[OK] App started\n\nCheck your Quest headset!";
             }
             else
             {
-                message += "\n? App auto-start failed\n\nLaunch manually from Unknown Sources.";
+                message += "\n[WARN] App auto-start failed\n\nLaunch manually from Unknown Sources.";
             }
             
             EditorUtility.DisplayDialog("Success", message, "OK");
@@ -245,7 +245,7 @@ public static class ADBTools
             // Try to get Quest IP address
             string ipAddress = GetQuestIPAddress();
             
-            string message = "? Wireless ADB enabled!\n\n";
+            string message = "[OK] Wireless ADB enabled!\n\n";
             if (!string.IsNullOrEmpty(ipAddress))
             {
                 message += $"Quest IP: {ipAddress}\n\n";
@@ -306,18 +306,6 @@ public static class ADBTools
         // Show window with IP input
         WirelessADBWindow.ShowWindow(lastIP);
     }
-    
-    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Connect to Quest", true)]
-    static bool ValidateConnectWirelessADB()
-    {
-        // Update menu item text with connection status
-        var devices = RunAdbCommand("devices");
-        bool isConnected = devices.Contains(":5555") && devices.Contains("device");
-        
-        // This doesn't actually change the menu text, but we can use it for validation
-        // The menu system doesn't support dynamic text, so we'll show status in the dialog instead
-        return true; // Always enabled
-    }
 
     [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Disconnect Wireless")]
     public static void DisconnectWirelessADB()
@@ -352,7 +340,7 @@ public static class ADBTools
         {
             EditorPrefs.SetString("QuestExporter_LastQuestIP", ipAddress);
             EditorUtility.DisplayDialog("Connected!", 
-                $"? Connected to Quest via WiFi\n\n" +
+                $"[OK] Connected to Quest via WiFi\n\n" +
                 $"IP: {ipAddress}:5555\n\n" +
                 $"You can now build and install without USB cable!", 
                 "OK");
@@ -360,7 +348,7 @@ public static class ADBTools
         else if (output.Contains("cannot connect") || output.Contains("failed"))
         {
             EditorUtility.DisplayDialog("Connection Failed", 
-                $"? Could not connect to Quest\n\n" +
+                $"[ERROR] Could not connect to Quest\n\n" +
                 $"IP: {ipAddress}\n\n" +
                 $"Make sure:\n" +
                 $"• Quest is on the same WiFi network\n" +
@@ -473,7 +461,7 @@ public static class ADBTools
         if (output.Contains("Success"))
         {
             EditorUtility.DisplayDialog("Uninstall Complete", 
-                $"? App uninstalled successfully!\n\nPackage: {packageId}\n\nYou can now do a clean install.", 
+                $"[OK] App uninstalled successfully!\n\nPackage: {packageId}\n\nYou can now do a clean install.", 
                 "OK");
         }
         else if (output.Contains("not installed"))
