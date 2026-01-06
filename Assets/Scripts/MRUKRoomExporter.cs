@@ -19,10 +19,6 @@ public class MRUKRoomExporter : MonoBehaviour
     public bool exportSVGFloorPlans = true;
     public bool exportDetailedExcel = true;
 
-    [Header("Google Drive Upload")]
-    public bool enableDriveUpload = false;
-    public GoogleDriveUploader driveUploader;
-
     public void ExportAll()
     {
         try
@@ -104,10 +100,7 @@ public class MRUKRoomExporter : MonoBehaviour
             RuntimeLogger.WriteLine($"Export completed: {jsonList.Count} rooms exported to {basePath}");
             Debug.Log($"Exported {jsonList.Count} rooms to {basePath}");
 
-            if (enableDriveUpload && driveUploader != null && driveUploader.autoUpload)
-            {
-                driveUploader.StartUploadDirectory(basePath);
-            }
+            RuntimeLogger.WriteLine("=== Export completed successfully ===");
         }
         catch (Exception ex)
         {

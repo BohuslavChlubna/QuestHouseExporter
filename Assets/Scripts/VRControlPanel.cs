@@ -299,12 +299,7 @@ public class VRControlPanel : MonoBehaviour
     
     void OnUploadToDrive()
     {
-        Debug.Log("Uploading to Google Drive...");
-        if (roomExporter != null && roomExporter.driveUploader != null)
-        {
-            string basePath = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, 
-                roomExporter.exportFolder);
-            roomExporter.driveUploader.StartUploadDirectory(basePath);
-        }
+        Debug.Log("Upload to Google Drive feature removed - use HTTP server for WiFi downloads instead");
+        RuntimeLogger.WriteLine("Google Drive upload is no longer available. Use SimpleHttpServer for WiFi downloads.");
     }
 }

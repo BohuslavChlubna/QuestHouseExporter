@@ -137,10 +137,11 @@ public static class ADBTools
             {
                 string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
                 if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
-                string activity = packageId + "/com.unity3d.player.UnityPlayerActivity";
-                UnityEngine.Debug.Log("Starting app: " + activity);
-                var startOut = RunAdbCommand($"shell am start -n {activity}");
-                UnityEngine.Debug.Log("adb start output:\n" + startOut);
+                
+                // Try launching with monkey command (works reliably for Unity apps)
+                UnityEngine.Debug.Log("Starting app via monkey...");
+                var startOut = RunAdbCommand($"shell monkey -p {packageId} -c android.intent.category.LAUNCHER 1");
+                UnityEngine.Debug.Log("App launch output:\n" + startOut);
             }
             else
             {

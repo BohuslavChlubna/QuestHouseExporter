@@ -5,40 +5,40 @@ public class AutoBootstrapper : MonoBehaviour
 {
     void Awake()
     {
-        // Ensure there is a singleton GameObject with MRUKRoomExporter (new) and UI
+        // Ensure there is a singleton GameObject with MRUKRoomExporter and components
         var existing = FindFirstObjectByType<MRUKRoomExporter>();
         if (existing == null)
         {
             var go = new GameObject("QuestHouseDesign");
             
-            // New MRUK-based exporter
+            // Core exporter
             var exporter = go.AddComponent<MRUKRoomExporter>();
             exporter.exportFolder = "QuestHouseDesign";
             exporter.exportOBJ = true;
             exporter.exportGLB = false;
             exporter.exportSVGFloorPlans = true;
 
-            // View mode control
+            // View modes
             var viewMode = go.AddComponent<ViewModeController>();
             var dollHouse = go.AddComponent<DollHouseVisualizer>();
             viewMode.dollHouseRoot = new GameObject("DollHouseRoot");
             viewMode.dollHouseRoot.transform.SetParent(go.transform);
             dollHouse.transform.SetParent(viewMode.dollHouseRoot.transform);
 
-            // UI components
-            var ui = go.AddComponent<ExporterUI>();
-            var ci = go.AddComponent<ControllerInputExporter>();
-            var wsp = go.AddComponent<WorldSpacePanel>();
-            var cwp = go.AddComponent<ControllerWorldPointer>();
+            // VR Control Panel
+            var vrPanel = go.AddComponent<VRControlPanel>();
+            vrPanel.roomExporter = exporter;
+            vrPanel.viewModeController = viewMode;
 
-            ci.useRightController = true;
-            ci.exportButtonLabel = "Primary Button (A) = Export";
-            ci.toggleModeLabel = "Secondary Button (B) = Toggle View Mode";
-            
-            cwp.useRight = true;
-            cwp.panel = wsp;
+            // HTTP Server for WiFi downloads
+            var httpServer = go.AddComponent<SimpleHttpServer>();
+
+            // Runtime logger for debugging
+            var logger = go.AddComponent<RuntimeLogger>();
 
             DontDestroyOnLoad(go);
+            
+            Debug.Log("QuestHouseDesign initialized successfully");
         }
     }
 }
