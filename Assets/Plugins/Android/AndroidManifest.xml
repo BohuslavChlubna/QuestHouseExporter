@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.yourcompany.questexport">
+    package="com.veksco.questhousedesign">
 
     <!-- INTERNET permission may be added by Unity/library; keep only storage permission here to avoid duplicate declarations -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
