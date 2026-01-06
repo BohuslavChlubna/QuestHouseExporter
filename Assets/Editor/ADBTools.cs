@@ -39,8 +39,10 @@ public static class ADBTools
         
         if (report.summary.result == BuildResult.Succeeded)
         {
-            UnityEngine.Debug.Log("Build succeeded: " + apkPath);
-            EditorUtility.DisplayDialog("Build Complete", $"APK built successfully:\n{apkPath}", "OK");
+            UnityEngine.Debug.Log($"? Build succeeded: {apkPath} ({new FileInfo(apkPath).Length / 1024 / 1024} MB)");
+            EditorUtility.DisplayDialog("Build Complete", 
+                $"APK built successfully!\n\nLocation: {apkPath}\nSize: {new FileInfo(apkPath).Length / 1024 / 1024} MB\n\nReady to install on Quest.", 
+                "OK");
         }
         else
         {
@@ -61,7 +63,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Build & Install APK")]
+    [MenuItem("Tools/QuestHouseDesign/ADB/Build and Install APK")]
     public static void BuildAndInstall()
     {
         // Check device connection first
@@ -118,30 +120,34 @@ public static class ADBTools
         var installOut = RunAdbCommand($"install -r \"{absolutePath}\"");
         UnityEngine.Debug.Log("adb install output:\n" + installOut);
         
-        // Check install result and show dialog
+        // Check install result (no success dialog, only log)
         if (installOut != null && installOut.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0)
         {
-            UnityEngine.Debug.Log("? Install successful");
-            EditorUtility.DisplayDialog("Install Complete", "QuestHouseDesign installed successfully on Quest!\n\nStarting app...", "OK");
+            UnityEngine.Debug.Log("? Install successful - starting app...");
         }
         else
         {
             UnityEngine.Debug.LogWarning("Install may have failed. Check output above.");
-            EditorUtility.DisplayDialog("Install Issue", $"Install output:\n{installOut}\n\nCheck Console for details.", "OK");
+            EditorUtility.DisplayDialog("Install Failed", $"Install output:\n{installOut}\n\nCheck Console for details.", "OK");
         }
         
         // If install succeeded, try to start the app
+        bool installSuccess = installOut != null && installOut.IndexOf("success", StringComparison.OrdinalIgnoreCase) >= 0;
+        bool appStarted = false;
+        
         try
         {
-            if (installOut != null && installOut.IndexOf("success", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (installSuccess)
             {
                 string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
                 if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
                 
-                // Try launching with monkey command (works reliably for Unity apps)
+                // Try launching with monkey command
                 UnityEngine.Debug.Log("Starting app via monkey...");
                 var startOut = RunAdbCommand($"shell monkey -p {packageId} -c android.intent.category.LAUNCHER 1");
                 UnityEngine.Debug.Log("App launch output:\n" + startOut);
+                
+                appStarted = !startOut.Contains("monkey aborted");
             }
             else
             {
@@ -151,6 +157,22 @@ public static class ADBTools
         catch (Exception ex)
         {
             UnityEngine.Debug.LogError("Failed to start app after install: " + ex.Message);
+        }
+        
+        // Final summary dialog
+        if (installSuccess)
+        {
+            string message = "? Build complete\n? Installed on Quest";
+            if (appStarted)
+            {
+                message += "\n? App started\n\nCheck your Quest headset!";
+            }
+            else
+            {
+                message += "\n? App auto-start failed\n\nLaunch manually from Unknown Sources.";
+            }
+            
+            EditorUtility.DisplayDialog("Success", message, "OK");
         }
     }
 

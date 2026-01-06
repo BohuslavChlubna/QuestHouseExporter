@@ -30,11 +30,8 @@ public class AutoBootstrapper : MonoBehaviour
             vrPanel.roomExporter = exporter;
             vrPanel.viewModeController = viewMode;
 
-            // HTTP Server for WiFi downloads
-            var httpServer = go.AddComponent<SimpleHttpServer>();
-
-            // Runtime logger for debugging
-            var logger = go.AddComponent<RuntimeLogger>();
+            // Note: SimpleHttpServer and RuntimeLogger are not MonoBehaviour components
+            // They are initialized automatically when needed (RuntimeLogger in MRUKRoomExporter)
 
             DontDestroyOnLoad(go);
             
