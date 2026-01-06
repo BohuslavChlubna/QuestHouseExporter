@@ -22,19 +22,25 @@ public class AutoBootstrapper : MonoBehaviour
             exporter.exportGLB = false;
             exporter.exportSVGFloorPlans = true;
 
-            Debug.Log("[AutoBootstrapper] Adding ViewModeController and DollHouseVisualizer...");
-            // View modes
-            var viewMode = go.AddComponent<ViewModeController>();
-            var dollHouse = go.AddComponent<DollHouseVisualizer>();
-            viewMode.dollHouseRoot = new GameObject("DollHouseRoot");
-            viewMode.dollHouseRoot.transform.SetParent(go.transform);
-            dollHouse.transform.SetParent(viewMode.dollHouseRoot.transform);
+            // TODO: Re-enable these when we have proper shader support
+            // Debug.Log("[AutoBootstrapper] Adding ViewModeController and DollHouseVisualizer...");
+            // // View modes
+            // var viewMode = go.AddComponent<ViewModeController>();
+            // var dollHouse = go.AddComponent<DollHouseVisualizer>();
+            // viewMode.dollHouseRoot = new GameObject("DollHouseRoot");
+            // viewMode.dollHouseRoot.transform.SetParent(go.transform);
+            // dollHouse.transform.SetParent(viewMode.dollHouseRoot.transform);
 
-            Debug.Log("[AutoBootstrapper] Adding VRControlPanel...");
-            // VR Control Panel
-            var vrPanel = go.AddComponent<VRControlPanel>();
-            vrPanel.roomExporter = exporter;
-            vrPanel.viewModeController = viewMode;
+            // Debug.Log("[AutoBootstrapper] Adding VRControlPanel...");
+            // // VR Control Panel
+            // var vrPanel = go.AddComponent<VRControlPanel>();
+            // vrPanel.roomExporter = exporter;
+            // vrPanel.viewModeController = viewMode;
+
+            Debug.Log("[AutoBootstrapper] Adding MenuController (simple UI)...");
+            // Simple UI Menu
+            var menuController = go.AddComponent<MenuController>();
+            menuController.roomExporter = exporter;
 
             // Note: SimpleHttpServer and RuntimeLogger are not MonoBehaviour components
             // They are initialized automatically when needed (RuntimeLogger in MRUKRoomExporter)

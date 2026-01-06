@@ -6,11 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SimpleTestScens.unity
-    guid: d06a5918585adac469188bfd26fef022
-  - enabled: 0
     path: Assets/Scenes/QuestHouseDesign.unity
     guid: 97fcf2262f33c5d4b983e45d04831ef2
+  - enabled: 0
+    path: Assets/Scenes/SimpleTestScens.unity
+    guid: d06a5918585adac469188bfd26fef022
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 47b4178fd7c01714da7b71fa69d6f2e4, type: 2}
