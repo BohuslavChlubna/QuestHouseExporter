@@ -142,7 +142,7 @@ public static class SVGFloorPlanGenerator
         {
             if (anchor == null) continue;
             
-            string label = anchor.Label?.ToString() ?? "";
+            string label = anchor.Label.ToString();
             bool isWindow = label.Contains("WINDOW") || label.Contains("Window");
             bool isDoor = label.Contains("DOOR") || label.Contains("Door");
             
