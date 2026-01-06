@@ -112,7 +112,10 @@ public static class ADBTools
         }
 
         UnityEngine.Debug.Log("Installing APK to device...");
-        var installOut = RunAdbCommand($"install -r \"{apkPath}\"");
+        
+        // Use absolute path for ADB (resolve full Windows path)
+        string absolutePath = Path.GetFullPath(apkPath);
+        var installOut = RunAdbCommand($"install -r \"{absolutePath}\"");
         UnityEngine.Debug.Log("adb install output:\n" + installOut);
         
         // Check install result and show dialog
