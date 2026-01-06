@@ -12,6 +12,12 @@ public class ControllerWorldPointer : MonoBehaviour
 
     void Start()
     {
+        #if UNITY_EDITOR
+        // Disable in Editor - requires VR controllers
+        gameObject.SetActive(false);
+        return;
+        #endif
+        
         FindController();
     }
     void FindController()
