@@ -13,14 +13,22 @@ public static class ADBTools
     [MenuItem("Tools/QuestHouseDesign/ADB/Build APK")]
     public static void BuildApk()
     {
+        BuildApkInternal(showDialog: true);
+    }
+
+    static BuildResult BuildApkInternal(bool showDialog)
+    {
         var scenes = EditorBuildSettings.scenes;
         var enabled = new System.Collections.Generic.List<string>();
         foreach (var s in scenes) if (s.enabled) enabled.Add(s.path);
         if (enabled.Count == 0)
         {
             UnityEngine.Debug.LogError("No enabled scenes in Build Settings.");
-            EditorUtility.DisplayDialog("Build Error", "No enabled scenes in Build Settings.\n\nAdd your scene to Build Settings first:\nFile ? Build Settings ? Add Open Scenes", "OK");
-            return;
+            if (showDialog)
+            {
+                EditorUtility.DisplayDialog("Build Error", "No enabled scenes in Build Settings.\n\nAdd your scene to Build Settings first:\nFile ? Build Settings ? Add Open Scenes", "OK");
+            }
+            return BuildResult.Failed;
         }
 
         if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
@@ -40,15 +48,23 @@ public static class ADBTools
         if (report.summary.result == BuildResult.Succeeded)
         {
             UnityEngine.Debug.Log($"? Build succeeded: {apkPath} ({new FileInfo(apkPath).Length / 1024 / 1024} MB)");
-            EditorUtility.DisplayDialog("Build Complete", 
-                $"APK built successfully!\n\nLocation: {apkPath}\nSize: {new FileInfo(apkPath).Length / 1024 / 1024} MB\n\nReady to install on Quest.", 
-                "OK");
+            if (showDialog)
+            {
+                EditorUtility.DisplayDialog("Build Complete", 
+                    $"APK built successfully!\n\nLocation: {apkPath}\nSize: {new FileInfo(apkPath).Length / 1024 / 1024} MB\n\nReady to install on Quest.", 
+                    "OK");
+            }
         }
         else
         {
             UnityEngine.Debug.LogError("Build failed: " + report.summary.result + " errors: " + report.summary.totalErrors);
-            EditorUtility.DisplayDialog("Build Failed", $"Build failed with {report.summary.totalErrors} error(s).\n\nResult: {report.summary.result}\n\nCheck Console for details.", "OK");
+            if (showDialog)
+            {
+                EditorUtility.DisplayDialog("Build Failed", $"Build failed with {report.summary.totalErrors} error(s).\n\nResult: {report.summary.result}\n\nCheck Console for details.", "OK");
+            }
         }
+        
+        return report.summary.result;
     }
 
     [MenuItem("Tools/QuestHouseDesign/ADB/Set ADB Path")]
@@ -88,10 +104,14 @@ public static class ADBTools
             }
         }
 
-        BuildApk();
+        // Build silently (no intermediate dialog)
+        var buildResult = BuildApkInternal(showDialog: false);
         
-        // Wait a moment for build dialog to close
-        System.Threading.Thread.Sleep(500);
+        if (buildResult != BuildResult.Succeeded)
+        {
+            EditorUtility.DisplayDialog("Build Failed", "APK build failed. Check Console for details.", "OK");
+            return;
+        }
         
         string apkPath = Path.Combine(outputDir, apkName);
         if (!File.Exists(apkPath))
