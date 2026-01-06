@@ -80,16 +80,43 @@ public static class ADBTools
 
         var devices = RunAdbCommand("devices");
         bool hasDevice = devices.Contains("device") && !devices.Contains("unauthorized");
+        bool isWireless = devices.Contains(":5555");
         
         if (!hasDevice)
         {
             UnityEngine.Debug.LogWarning("No Quest device detected. Output:\n" + devices);
-            if (!EditorUtility.DisplayDialog("No Device Detected", 
-                "No Quest device found via ADB.\n\nMake sure:\n• Quest is connected via USB\n• USB debugging is enabled\n• Authorization prompt is accepted on headset\n\nContinue with build anyway?", 
-                "Yes, Build Only", "Cancel"))
+            
+            // Offer wireless connection option
+            var choice = EditorUtility.DisplayDialogComplex("No Device Detected", 
+                "No Quest device found.\n\n" +
+                "USB: Connect Quest via USB cable\n" +
+                "WiFi: Connect via wireless ADB\n\n" +
+                "Make sure:\n" +
+                "• USB debugging is enabled\n" +
+                "• Authorization prompt is accepted on headset", 
+                "Connect via WiFi", 
+                "Build Anyway", 
+                "Cancel");
+            
+            if (choice == 0) // Connect via WiFi
+            {
+                string lastIP = EditorPrefs.GetString("QuestExporter_LastQuestIP", "");
+                WirelessADBWindow.ShowWindow(lastIP);
+                return;
+            }
+            else if (choice == 2) // Cancel
             {
                 return;
             }
+            // choice == 1 falls through to build anyway
+        }
+        else if (isWireless)
+        {
+            UnityEngine.Debug.Log("?? Using wireless ADB connection");
+        }
+        else
+        {
+            UnityEngine.Debug.Log("?? Using USB connection");
         }
 
         // Build silently (no intermediate dialog)
@@ -184,6 +211,285 @@ public static class ADBTools
         }
     }
 
+    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Enable Wireless ADB")]
+    public static void EnableWirelessADB()
+    {
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB not found. Install Android Platform Tools and add to PATH.", "OK");
+            return;
+        }
+
+        var devices = RunAdbCommand("devices");
+        if (!devices.Contains("device") || devices.Contains("unauthorized"))
+        {
+            UnityEngine.Debug.LogWarning("No USB device detected. Connect Quest via USB first.");
+            EditorUtility.DisplayDialog("No USB Device", 
+                "Quest not connected via USB.\n\n" +
+                "To enable wireless ADB:\n" +
+                "1. Connect Quest via USB cable\n" +
+                "2. Enable USB debugging\n" +
+                "3. Run this command again\n\n" +
+                "After that, you can disconnect the cable and use WiFi.", 
+                "OK");
+            return;
+        }
+
+        UnityEngine.Debug.Log("Enabling wireless ADB on port 5555...");
+        var output = RunAdbCommand("tcpip 5555");
+        UnityEngine.Debug.Log("ADB tcpip output:\n" + output);
+
+        if (output.Contains("restarting") || output.Contains("5555"))
+        {
+            // Try to get Quest IP address
+            string ipAddress = GetQuestIPAddress();
+            
+            string message = "? Wireless ADB enabled!\n\n";
+            if (!string.IsNullOrEmpty(ipAddress))
+            {
+                message += $"Quest IP: {ipAddress}\n\n";
+                message += "You can now:\n";
+                message += "1. Disconnect USB cable\n";
+                message += $"2. Use 'Connect to Quest' with IP: {ipAddress}\n\n";
+                
+                // Save IP for later
+                EditorPrefs.SetString("QuestExporter_LastQuestIP", ipAddress);
+            }
+            else
+            {
+                message += "You can now:\n";
+                message += "1. Disconnect USB cable\n";
+                message += "2. Find Quest IP in Settings ? WiFi\n";
+                message += "3. Use 'Connect to Quest' menu\n\n";
+            }
+            
+            message += "Note: Quest and PC must be on the same WiFi network.";
+            
+            EditorUtility.DisplayDialog("Wireless ADB Enabled", message, "OK");
+            UnityEngine.Debug.Log("[ADB] Wireless mode enabled. You can disconnect USB cable now.");
+        }
+        else
+        {
+            EditorUtility.DisplayDialog("Failed", 
+                $"Could not enable wireless ADB.\n\nOutput:\n{output}\n\nMake sure Quest is connected via USB.", 
+                "OK");
+        }
+    }
+
+    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Connect to Quest")]
+    public static void ConnectWirelessADB()
+    {
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB not found. Install Android Platform Tools and add to PATH.", "OK");
+            return;
+        }
+
+        // Get saved IP or ask user
+        string lastIP = EditorPrefs.GetString("QuestExporter_LastQuestIP", "");
+        
+        // Try to auto-detect IP if USB is connected
+        var devices = RunAdbCommand("devices");
+        if (devices.Contains("device") && !devices.Contains("unauthorized") && !devices.Contains(":5555"))
+        {
+            UnityEngine.Debug.Log("USB device detected, trying to auto-detect IP...");
+            string autoIP = GetQuestIPAddress();
+            if (!string.IsNullOrEmpty(autoIP))
+            {
+                lastIP = autoIP;
+                UnityEngine.Debug.Log($"Auto-detected Quest IP: {autoIP}");
+            }
+        }
+        
+        // Show window with IP input
+        WirelessADBWindow.ShowWindow(lastIP);
+    }
+    
+    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Connect to Quest", true)]
+    static bool ValidateConnectWirelessADB()
+    {
+        // Update menu item text with connection status
+        var devices = RunAdbCommand("devices");
+        bool isConnected = devices.Contains(":5555") && devices.Contains("device");
+        
+        // This doesn't actually change the menu text, but we can use it for validation
+        // The menu system doesn't support dynamic text, so we'll show status in the dialog instead
+        return true; // Always enabled
+    }
+
+    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Disconnect Wireless")]
+    public static void DisconnectWirelessADB()
+    {
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            return;
+        }
+
+        string lastIP = EditorPrefs.GetString("QuestExporter_LastQuestIP", "");
+        if (!string.IsNullOrEmpty(lastIP))
+        {
+            UnityEngine.Debug.Log($"Disconnecting from {lastIP}...");
+            var output = RunAdbCommand($"disconnect {lastIP}:5555");
+            UnityEngine.Debug.Log("Disconnect output:\n" + output);
+        }
+        
+        var output2 = RunAdbCommand("disconnect");
+        UnityEngine.Debug.Log("Disconnect all output:\n" + output2);
+        
+        EditorUtility.DisplayDialog("Disconnected", "Wireless ADB disconnected.\n\nTo reconnect, use USB or 'Connect to Quest'.", "OK");
+    }
+
+    public static void ConnectToQuestIP(string ipAddress)
+    {
+        UnityEngine.Debug.Log($"Connecting to Quest at {ipAddress}:5555...");
+        var output = RunAdbCommand($"connect {ipAddress}:5555");
+        UnityEngine.Debug.Log("ADB connect output:\n" + output);
+
+        if (output.Contains("connected") || output.Contains("already connected"))
+        {
+            EditorPrefs.SetString("QuestExporter_LastQuestIP", ipAddress);
+            EditorUtility.DisplayDialog("Connected!", 
+                $"? Connected to Quest via WiFi\n\n" +
+                $"IP: {ipAddress}:5555\n\n" +
+                $"You can now build and install without USB cable!", 
+                "OK");
+        }
+        else if (output.Contains("cannot connect") || output.Contains("failed"))
+        {
+            EditorUtility.DisplayDialog("Connection Failed", 
+                $"? Could not connect to Quest\n\n" +
+                $"IP: {ipAddress}\n\n" +
+                $"Make sure:\n" +
+                $"• Quest is on the same WiFi network\n" +
+                $"• Wireless ADB is enabled (use USB first)\n" +
+                $"• IP address is correct\n\n" +
+                $"Output:\n{output}", 
+                "OK");
+        }
+        else
+        {
+            EditorUtility.DisplayDialog("Unknown Result", 
+                $"ADB connect output:\n{output}\n\n" +
+                $"Check console for details.", 
+                "OK");
+        }
+    }
+
+    static string GetQuestIPAddress()
+    {
+        try
+        {
+            // Try to get IP via adb shell
+            var output = RunAdbCommand("shell ip addr show wlan0");
+            
+            // Parse IP from output (look for "inet 192.168.x.x")
+            var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                if (line.Contains("inet ") && !line.Contains("inet6"))
+                {
+                    var parts = line.Trim().Split(' ');
+                    if (parts.Length > 1)
+                    {
+                        var ipPart = parts[1].Split('/')[0]; // Remove /24 suffix
+                        if (System.Net.IPAddress.TryParse(ipPart, out _))
+                        {
+                            return ipPart;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            UnityEngine.Debug.LogWarning("Could not auto-detect Quest IP: " + ex.Message);
+        }
+        
+        return null;
+    }
+
+    [MenuItem("Tools/QuestHouseDesign/ADB/Uninstall App")]
+    public static void UninstallApp()
+    {
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB not found. Install Android Platform Tools and add to PATH.", "OK");
+            return;
+        }
+
+        var devices = RunAdbCommand("devices");
+        bool hasDevice = devices.Contains("device") && !devices.Contains("unauthorized");
+        
+        if (!hasDevice)
+        {
+            UnityEngine.Debug.LogWarning("No Quest device detected. Output:\n" + devices);
+            
+            // Offer wireless connection option (same as Build and Install)
+            var choice = EditorUtility.DisplayDialogComplex("No Device Detected", 
+                "No Quest device found.\n\n" +
+                "USB: Connect Quest via USB cable\n" +
+                "WiFi: Connect via wireless ADB\n\n" +
+                "Make sure:\n" +
+                "• USB debugging is enabled\n" +
+                "• Authorization prompt is accepted on headset", 
+                "Connect via WiFi", 
+                "Cancel", 
+                "Retry");
+            
+            if (choice == 0) // Connect via WiFi
+            {
+                string lastIP = EditorPrefs.GetString("QuestExporter_LastQuestIP", "");
+                WirelessADBWindow.ShowWindow(lastIP);
+                return;
+            }
+            else if (choice == 2) // Retry
+            {
+                UninstallApp(); // Recursively retry
+                return;
+            }
+            // choice == 1 is Cancel - just return
+            return;
+        }
+
+        string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
+        if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
+
+        // Confirm before uninstalling
+        bool confirm = EditorUtility.DisplayDialog("Uninstall App", 
+            $"Are you sure you want to uninstall:\n\n{packageId}\n\nThis will remove all app data including exports!", 
+            "Uninstall", 
+            "Cancel");
+        
+        if (!confirm) return;
+
+        UnityEngine.Debug.Log($"Uninstalling {packageId}...");
+        var output = RunAdbCommand($"uninstall {packageId}");
+        UnityEngine.Debug.Log("Uninstall output:\n" + output);
+
+        if (output.Contains("Success"))
+        {
+            EditorUtility.DisplayDialog("Uninstall Complete", 
+                $"? App uninstalled successfully!\n\nPackage: {packageId}\n\nYou can now do a clean install.", 
+                "OK");
+        }
+        else if (output.Contains("not installed"))
+        {
+            EditorUtility.DisplayDialog("Not Installed", 
+                $"App is not installed on device.\n\nPackage: {packageId}", 
+                "OK");
+        }
+        else
+        {
+            EditorUtility.DisplayDialog("Uninstall Failed", 
+                $"Could not uninstall app.\n\nOutput:\n{output}\n\nCheck Console for details.", 
+                "OK");
+        }
+    }
+
     [MenuItem("Tools/QuestHouseDesign/ADB/Pull Exports from Device")]
     public static void PullExports()
     {
@@ -230,6 +536,103 @@ public static class ADBTools
         }
     }
 
+    [MenuItem("Tools/QuestHouseDesign/ADB/Logcat/Show Logcat (Unity only)")]
+    public static void ShowLogcat()
+    {
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB not found. Install Android Platform Tools and add to PATH.", "OK");
+            return;
+        }
+
+        var devices = RunAdbCommand("devices");
+        if (!devices.Contains("device") || devices.Contains("unauthorized"))
+        {
+            UnityEngine.Debug.LogWarning("No device detected.");
+            EditorUtility.DisplayDialog("No Device", "Quest not connected.\n\nConnect Quest via USB or WiFi first.", "OK");
+            return;
+        }
+
+        string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
+        if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
+
+        UnityEngine.Debug.Log($"Starting logcat for {packageId}...");
+        UnityEngine.Debug.Log("Close the terminal window to stop logcat.");
+        
+        // Start logcat in new terminal window, filtered for Unity
+        var psi = new ProcessStartInfo
+        {
+            FileName = "cmd.exe",
+            Arguments = $"/k adb logcat -s Unity ActivityManager PackageManager DEBUG",
+            UseShellExecute = true,
+            CreateNoWindow = false
+        };
+        Process.Start(psi);
+    }
+
+    [MenuItem("Tools/QuestHouseDesign/ADB/Logcat/Clear Logcat")]
+    public static void ClearLogcat()
+    {
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB not found. Install Android Platform Tools and add to PATH.", "OK");
+            return;
+        }
+
+        var devices = RunAdbCommand("devices");
+        if (!devices.Contains("device") || devices.Contains("unauthorized"))
+        {
+            UnityEngine.Debug.LogWarning("No device detected.");
+            EditorUtility.DisplayDialog("No Device", "Quest not connected.\n\nConnect Quest via USB or WiFi first.", "OK");
+            return;
+        }
+
+        UnityEngine.Debug.Log("Clearing logcat buffer...");
+        var output = RunAdbCommand("logcat -c");
+        UnityEngine.Debug.Log("Logcat cleared.");
+        EditorUtility.DisplayDialog("Logcat Cleared", "Logcat buffer has been cleared.\n\nYou can now start fresh logging.", "OK");
+    }
+
+    [MenuItem("Tools/QuestHouseDesign/ADB/Logcat/Save Logcat to File")]
+    public static void SaveLogcat()
+    {
+        if (!IsAdbAvailable())
+        {
+            UnityEngine.Debug.LogError("ADB not found in PATH.");
+            EditorUtility.DisplayDialog("ADB Not Found", "ADB not found. Install Android Platform Tools and add to PATH.", "OK");
+            return;
+        }
+
+        var devices = RunAdbCommand("devices");
+        if (!devices.Contains("device") || devices.Contains("unauthorized"))
+        {
+            UnityEngine.Debug.LogWarning("No device detected.");
+            EditorUtility.DisplayDialog("No Device", "Quest not connected.\n\nConnect Quest via USB or WiFi first.", "OK");
+            return;
+        }
+
+        string logFolder = Path.Combine(Environment.CurrentDirectory, "Logs");
+        if (!Directory.Exists(logFolder)) Directory.CreateDirectory(logFolder);
+        
+        string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        string logPath = Path.Combine(logFolder, $"logcat_{timestamp}.txt");
+
+        UnityEngine.Debug.Log($"Saving logcat to: {logPath}");
+        var output = RunAdbCommand("logcat -d -s Unity ActivityManager PackageManager DEBUG");
+        
+        File.WriteAllText(logPath, output);
+        UnityEngine.Debug.Log($"Logcat saved to: {logPath}");
+        
+        EditorUtility.DisplayDialog("Logcat Saved", 
+            $"Logcat saved to:\n{logPath}\n\nFile size: {new FileInfo(logPath).Length / 1024} KB", 
+            "OK");
+        
+        // Open folder in Explorer
+        System.Diagnostics.Process.Start("explorer.exe", logFolder.Replace("/", "\\"));
+    }
+
     static bool IsAdbAvailable()
     {
         try
@@ -242,7 +645,7 @@ public static class ADBTools
         catch { return false; }
     }
 
-    static string RunAdbCommand(string args)
+    public static string RunAdbCommand(string args)
     {
         var adb = GetAdbExecutable();
         if (string.IsNullOrEmpty(adb)) return "";

@@ -72,9 +72,33 @@ public class MenuController : MonoBehaviour
         // Update status to show cached rooms are ready
         if (statusText != null)
         {
-            statusText.text = cachedRooms.Count > 0 
-                ? $"Ready! {cachedRooms.Count} room(s) loaded" 
-                : "No rooms found";
+            if (MRUK.Instance == null)
+            {
+                statusText.text = "?? MRUK not ready - Scan rooms in Quest";
+                statusText.color = new Color(1f, 0.5f, 0f);
+            }
+            else if (cachedRooms.Count > 0)
+            {
+                // Check if using default test room
+                bool isDefaultRoom = cachedRooms.Count == 1 && 
+                                    cachedRooms[0].name == "DefaultTestRoom";
+                
+                if (isDefaultRoom)
+                {
+                    statusText.text = "?? Using test room (4x5m)\nScan real rooms for actual data";
+                    statusText.color = new Color(1f, 0.8f, 0.2f); // Orange warning color
+                }
+                else
+                {
+                    statusText.text = $"? Ready! {cachedRooms.Count} room(s) loaded";
+                    statusText.color = Color.cyan;
+                }
+            }
+            else
+            {
+                statusText.text = "?? No rooms found - Scan rooms to get started";
+                statusText.color = new Color(1f, 0.5f, 0f);
+            }
         }
     }
 
@@ -317,3 +341,5 @@ public class MenuController : MonoBehaviour
         }
     }
 }
+
+
