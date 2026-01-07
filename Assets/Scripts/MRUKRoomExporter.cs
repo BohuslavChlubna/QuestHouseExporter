@@ -20,6 +20,42 @@ public class MRUKRoomExporter : MonoBehaviour
     public bool exportDetailedExcel = true;
 
     /// <summary>
+    /// Export from offline RoomData (NO MRUK dependency!)
+    /// </summary>
+    public void ExportFromOfflineRooms(List<RoomData> offlineRooms)
+    {
+        if (offlineRooms == null || offlineRooms.Count == 0)
+        {
+            RuntimeLogger.WriteLine("ERROR: No offline rooms to export.");
+            Debug.LogError("ExportFromOfflineRooms: offlineRooms is null or empty.");
+            return;
+        }
+        
+        RuntimeLogger.WriteLine($"[MRUKRoomExporter] Exporting {offlineRooms.Count} offline rooms");
+        
+        try
+        {
+            RuntimeLogger.Init(exportFolder);
+            string basePath = Path.Combine(Application.persistentDataPath, exportFolder);
+            Directory.CreateDirectory(basePath);
+            
+            // Simple JSON export for now
+            string jsonPath = Path.Combine(basePath, "offline_rooms.json");
+            var wrapper = new { rooms = offlineRooms };
+            string json = JsonUtility.ToJson(wrapper, true);
+            File.WriteAllText(jsonPath, json);
+            
+            RuntimeLogger.WriteLine($"Exported {offlineRooms.Count} offline rooms to: {jsonPath}");
+            Debug.Log($"[MRUKRoomExporter] Export complete: {jsonPath}");
+        }
+        catch (Exception ex)
+        {
+            RuntimeLogger.WriteLine($"ERROR during offline export: {ex.Message}");
+            Debug.LogError($"ExportFromOfflineRooms failed: {ex}");
+        }
+    }
+    
+    /// <summary>
     /// Export from cached room list (snapshot from MenuController).
     /// This ensures exported data matches what user sees in visualizations.
     /// </summary>

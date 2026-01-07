@@ -29,6 +29,66 @@ public class DollHouseVisualizer : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Generate dollhouse from offline RoomData (NO MRUK dependency!)
+    /// </summary>
+    public void GenerateDollHouseFromOfflineData(List<RoomData> rooms)
+    {
+        Debug.Log($"[DollHouseVisualizer] Generating from {rooms.Count} offline rooms");
+        ClearDollHouse();
+        
+        foreach (var room in rooms)
+        {
+            CreateRoomVisualizationFromOfflineData(room);
+        }
+        
+        RuntimeLogger.WriteLine($"Doll house generated from offline data: {visualizedRooms.Count} rooms");
+    }
+    
+    void CreateRoomVisualizationFromOfflineData(RoomData room)
+    {
+        if (room.floorBoundary == null || room.floorBoundary.Count < 3)
+        {
+            Debug.LogWarning($"[DollHouseVisualizer] Room {room.roomName} has no valid floor boundary");
+            return;
+        }
+        
+        var go = new GameObject($"DH_{room.roomName}");
+        go.transform.SetParent(transform, false);
+        
+        // Position at origin, scaled down
+        go.transform.localPosition = Vector3.zero;
+        go.transform.localScale = Vector3.one * scale;
+        
+        // Create floor mesh from boundary
+        Mesh mesh = CreateFloorMeshFromOfflineData(room.floorBoundary);
+        var mf = go.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+        var mr = go.AddComponent<MeshRenderer>();
+        mr.material = roomMaterial;
+        
+        visualizedRooms.Add(go);
+        Debug.Log($"[DollHouseVisualizer] Created room: {room.roomName}");
+    }
+    
+    Mesh CreateFloorMeshFromOfflineData(List<Vector3> boundary)
+    {
+        Mesh mesh = new Mesh();
+        mesh.vertices = boundary.ToArray();
+        
+        // Simple triangulation (fan from first vertex)
+        int[] tris = new int[(boundary.Count - 2) * 3];
+        for (int i = 0; i < boundary.Count - 2; i++)
+        {
+            tris[i * 3 + 0] = 0;
+            tris[i * 3 + 1] = i + 1;
+            tris[i * 3 + 2] = i + 2;
+        }
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        return mesh;
+    }
+    
     public void GenerateDollHouse()
     {
         ClearDollHouse();

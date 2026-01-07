@@ -6,6 +6,9 @@ using Meta.XR.MRUtilityKit;
 
 public class MenuController : MonoBehaviour
 {
+    [Header("TEST MODE - Disable visualizations for debugging")]
+    public bool testModeSimpleUI = false; // Set TRUE to test just UI without dollhouse
+    
     public MRUKRoomExporter roomExporter;
     public ViewModeController viewModeController;
     public DollHouseVisualizer dollHouseVisualizer;
@@ -17,8 +20,8 @@ public class MenuController : MonoBehaviour
     private Button exportButton;
     private Button reloadButton;
     
-    // Cached room data - snapshot of MRUK rooms at time of Show() or Reload
-    private List<MRUKRoom> cachedRooms = new List<MRUKRoom>();
+    // Offline cached room data from RoomDataStorage
+    private List<RoomData> offlineRooms = new List<RoomData>();
     
     void Start()
     {
@@ -30,73 +33,75 @@ public class MenuController : MonoBehaviour
         Debug.Log("[MenuController] Show() called, creating UI");
         CreateMenuUI();
         
-        // Cache current MRUK rooms (snapshot at startup)
-        CacheCurrentRooms();
+        // Load offline room data (NO MRUK dependency at startup!)
+        LoadOfflineRooms();
         
-        // Auto-generate visualizations when menu is shown (rooms are already loaded)
+        // Auto-generate visualizations from offline data
         GenerateInitialVisualizations();
     }
     
-    void CacheCurrentRooms()
+    void LoadOfflineRooms()
     {
-        cachedRooms.Clear();
+        offlineRooms.Clear();
         
-        if (MRUK.Instance != null && MRUK.Instance.Rooms != null)
+        if (RoomDataStorage.Instance != null)
         {
-            cachedRooms.AddRange(MRUK.Instance.Rooms);
-            Debug.Log($"[MenuController] Cached {cachedRooms.Count} rooms from MRUK");
-            RuntimeLogger.WriteLine($"[MenuController] Room data cached: {cachedRooms.Count} rooms");
+            offlineRooms = RoomDataStorage.Instance.GetCachedRooms();
+            Debug.Log($"[MenuController] Loaded {offlineRooms.Count} offline rooms");
+            RuntimeLogger.WriteLine($"[MenuController] Loaded {offlineRooms.Count} room(s) from offline cache");
         }
         else
         {
-            Debug.LogWarning("[MenuController] No rooms to cache from MRUK");
+            Debug.LogError("[MenuController] RoomDataStorage not found!");
         }
     }
     
     void GenerateInitialVisualizations()
     {
-        Debug.Log("[MenuController] Generating initial visualizations");
+        if (testModeSimpleUI)
+        {
+            Debug.Log("[MenuController] TEST MODE - Skipping visualizations");
+            RuntimeLogger.WriteLine("[MenuController] Running in TEST MODE - UI only, no visualizations");
+            return;
+        }
         
+        Debug.Log("[MenuController] Generating initial visualizations from offline data");
+        
+        // Generate visualizations from offline RoomData (NO MRUK access!)
         if (dollHouseVisualizer != null)
         {
-            dollHouseVisualizer.GenerateDollHouse();
-            Debug.Log("[MenuController] Doll house generated");
+            dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
+            Debug.Log("[MenuController] Doll house generated from offline data");
         }
         
         if (inRoomWallVisualizer != null)
         {
-            inRoomWallVisualizer.GenerateWallOutlines();
-            Debug.Log("[MenuController] In-room walls generated");
+            inRoomWallVisualizer.GenerateWallsFromOfflineData(offlineRooms);
+            Debug.Log("[MenuController] In-room walls generated from offline data");
         }
         
-        // Update status to show cached rooms are ready
+        // Update status
         if (statusText != null)
         {
-            if (MRUK.Instance == null)
+            if (offlineRooms.Count > 0)
             {
-                statusText.text = "?? MRUK not ready - Scan rooms in Quest";
-                statusText.color = new Color(1f, 0.5f, 0f);
-            }
-            else if (cachedRooms.Count > 0)
-            {
-                // Check if using default test room
-                bool isDefaultRoom = cachedRooms.Count == 1 && 
-                                    cachedRooms[0].name == "DefaultTestRoom";
+                bool isDefaultRoom = offlineRooms.Count == 1 && 
+                                    offlineRooms[0].roomId == "default_test_room";
                 
                 if (isDefaultRoom)
                 {
-                    statusText.text = "?? Using test room (4x5m)\nScan real rooms for actual data";
-                    statusText.color = new Color(1f, 0.8f, 0.2f); // Orange warning color
+                    statusText.text = "Using test room (4x5m)\nClick 'Reload Rooms' to scan real rooms";
+                    statusText.color = new Color(1f, 0.8f, 0.2f);
                 }
                 else
                 {
-                    statusText.text = $"? Ready! {cachedRooms.Count} room(s) loaded";
+                    statusText.text = $"Ready! {offlineRooms.Count} room(s) loaded";
                     statusText.color = Color.cyan;
                 }
             }
             else
             {
-                statusText.text = "?? No rooms found - Scan rooms to get started";
+                statusText.text = "No rooms found - Click 'Reload Rooms' to scan";
                 statusText.color = new Color(1f, 0.5f, 0f);
             }
         }
@@ -254,10 +259,10 @@ public class MenuController : MonoBehaviour
     {
         Debug.Log("[MenuController] Export button pressed");
         
-        if (cachedRooms == null || cachedRooms.Count == 0)
+        if (offlineRooms == null || offlineRooms.Count == 0)
         {
-            statusText.text = "ERROR: No cached room data!";
-            Debug.LogError("[MenuController] No cached rooms to export. Try Reload Rooms first.");
+            statusText.text = "ERROR: No room data!";
+            Debug.LogError("[MenuController] No rooms to export. Try Reload Rooms first.");
             return;
         }
         
@@ -265,10 +270,10 @@ public class MenuController : MonoBehaviour
         
         if (roomExporter != null)
         {
-            // Export from cached rooms (snapshot), not live MRUK data
-            roomExporter.ExportFromCachedRooms(cachedRooms);
-            statusText.text = $"Export complete! {cachedRooms.Count} room(s) exported.";
-            RuntimeLogger.WriteLine($"[MenuController] Exported {cachedRooms.Count} cached rooms");
+            // Export from offline data (not MRUK)
+            roomExporter.ExportFromOfflineRooms(offlineRooms);
+            statusText.text = $"Export complete! {offlineRooms.Count} room(s) exported.";
+            RuntimeLogger.WriteLine($"[MenuController] Exported {offlineRooms.Count} offline rooms");
         }
         else
         {
@@ -295,30 +300,85 @@ public class MenuController : MonoBehaviour
 
     void OnReloadRoomsPressed()
     {
-        Debug.Log("[MenuController] Reload Rooms button pressed");
-        statusText.text = "Reloading rooms...";
+        Debug.Log("[MenuController] Reload Rooms button pressed - NOW INITIALIZING MRUK!");
+        statusText.text = "Scanning rooms via MRUK...";
         
-        // Clear existing visualizations
+        // THIS IS THE ONLY PLACE WHERE WE ACCESS MRUK!
+        StartCoroutine(ReloadRoomsFromMRUK());
+    }
+    
+    System.Collections.IEnumerator ReloadRoomsFromMRUK()
+    {
+        yield return new WaitForSeconds(0.5f);
+        
+        // Check if MRUK is ready
+        if (MRUK.Instance == null)
+        {
+            statusText.text = "MRUK not initialized!\nScan rooms in Quest settings first";
+            statusText.color = Color.red;
+            RuntimeLogger.WriteLine("[MenuController] MRUK not found - cannot reload rooms");
+            yield break;
+        }
+        
+        if (MRUK.Instance.Rooms == null || MRUK.Instance.Rooms.Count == 0)
+        {
+            statusText.text = "No rooms scanned!\nUse Quest settings to scan your room";
+            statusText.color = Color.red;
+            RuntimeLogger.WriteLine("[MenuController] MRUK has no rooms - user needs to scan");
+            yield break;
+        }
+        
+        // Convert MRUK rooms to RoomData
+        List<RoomData> newRooms = ConvertMRUKRoomsToOfflineData(MRUK.Instance.Rooms);
+        
+        // Save to persistent storage
+        if (RoomDataStorage.Instance != null)
+        {
+            RoomDataStorage.Instance.SaveRooms(newRooms);
+        }
+        
+        // Update offline cache
+        offlineRooms = newRooms;
+        
+        // Clear and regenerate visualizations
         if (dollHouseVisualizer != null)
         {
             dollHouseVisualizer.ClearDollHouse();
+            dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
         }
         
         if (inRoomWallVisualizer != null)
         {
             inRoomWallVisualizer.ClearWalls();
+            inRoomWallVisualizer.GenerateWallsFromOfflineData(offlineRooms);
         }
         
-        // Refresh cache with current MRUK data (new snapshot)
-        CacheCurrentRooms();
+        statusText.text = $"Rooms reloaded! {offlineRooms.Count} room(s) scanned";
+        statusText.color = Color.green;
         
-        // Regenerate visualizations with newly cached data
-        GenerateInitialVisualizations();
+        RuntimeLogger.WriteLine($"[MenuController] Successfully reloaded {offlineRooms.Count} rooms from MRUK");
+    }
+    
+    List<RoomData> ConvertMRUKRoomsToOfflineData(List<MRUKRoom> mrukRooms)
+    {
+        var result = new List<RoomData>();
         
-        // Update status
-        statusText.text = $"Rooms reloaded! {cachedRooms.Count} room(s) found";
+        foreach (var mrukRoom in mrukRooms)
+        {
+            var roomData = new RoomData
+            {
+                roomId = mrukRoom.Anchor != null ? mrukRoom.Anchor.Uuid.ToString() : System.Guid.NewGuid().ToString(),
+                roomName = mrukRoom.name,
+                ceilingHeight = mrukRoom.GetRoomBounds().size.y
+            };
+            
+            // TODO: Add proper MRUK ? RoomData conversion here
+            // For now, store basic data
+            
+            result.Add(roomData);
+        }
         
-        RuntimeLogger.WriteLine($"[MenuController] Rooms reloaded and cached: {cachedRooms.Count} rooms");
+        return result;
     }
     
     void OnToggleViewMode()

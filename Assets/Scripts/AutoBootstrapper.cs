@@ -3,15 +3,28 @@ using UnityEngine;
 [DefaultExecutionOrder(-100)]
 public class AutoBootstrapper : MonoBehaviour
 {
+    [Header("TEST MODE - Simple UI only")]
+    public bool testModeSimpleUI = false; // Enable to test UI without visualizations
+    
     void Awake()
     {
         Debug.Log("[AutoBootstrapper] Awake() called");
+        
+        if (testModeSimpleUI)
+        {
+            Debug.LogWarning("[AutoBootstrapper] TEST MODE ENABLED - UI only, no visualizations!");
+            RuntimeLogger.WriteLine("[AutoBootstrapper] Running in TEST MODE");
+        }
         
         var existing = FindFirstObjectByType<MRUKRoomExporter>();
         if (existing == null)
         {
             Debug.Log("[AutoBootstrapper] Creating QuestHouseDesign GameObject...");
             var go = new GameObject("QuestHouseDesign");
+            
+            // Add RoomDataStorage FIRST - NO MRUK dependency!
+            Debug.Log("[AutoBootstrapper] Adding RoomDataStorage (offline mode)...");
+            go.AddComponent<RoomDataStorage>();
             
             Debug.Log("[AutoBootstrapper] Adding MRUKRoomExporter...");
             var exporter = go.AddComponent<MRUKRoomExporter>();
@@ -39,6 +52,7 @@ public class AutoBootstrapper : MonoBehaviour
             menuController.viewModeController = viewMode;
             menuController.dollHouseVisualizer = dollHouse;
             menuController.inRoomWallVisualizer = inRoomViz;
+            menuController.testModeSimpleUI = testModeSimpleUI; // Pass test mode flag
             menuController.enabled = false;
 
             Debug.Log("[AutoBootstrapper] Adding InitializationScreen...");

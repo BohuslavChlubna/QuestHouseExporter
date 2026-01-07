@@ -197,14 +197,14 @@ public static class ADBTools
         // Final summary dialog
         if (installSuccess)
         {
-            string message = "[OK] Build complete\n[OK] Installed on Quest";
+            string message;
             if (appStarted)
             {
-                message += "\n[OK] App started\n\nCheck your Quest headset!";
+                message = "[OK] Build complete\n[OK] Installed on Quest\n[OK] App started\n\nCheck your Quest headset!";
             }
             else
             {
-                message += "\n[WARN] App auto-start failed\n\nLaunch manually from Unknown Sources.";
+                message = "[OK] Build complete\n[OK] Installed on Quest\n[WARN] App auto-start failed\n\nLaunch manually from Unknown Sources.";
             }
             
             EditorUtility.DisplayDialog("Success", message, "OK");

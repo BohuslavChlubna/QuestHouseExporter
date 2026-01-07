@@ -1,10 +1,8 @@
 using System;
 using UnityEngine;
-using Meta.XR.MRUtilityKit;
 
 /// <summary>
-/// Simple initialization - checks for rooms immediately.
-/// No UI, just immediate initialization.
+/// Simple initialization - NO MRUK checks, uses offline RoomDataStorage
 /// </summary>
 public class InitializationScreen : MonoBehaviour
 {
@@ -14,23 +12,20 @@ public class InitializationScreen : MonoBehaviour
     {
         onInitialized = onComplete;
         
-        Debug.Log("[InitializationScreen] Checking for existing rooms...");
+        Debug.Log("[InitializationScreen] Initializing with offline room data...");
         
-        // Check immediately - don't wait for MRUK
-        if (MRUK.Instance == null)
+        // Check if RoomDataStorage is ready (not MRUK!)
+        if (RoomDataStorage.Instance != null)
         {
-            Debug.Log("[InitializationScreen] MRUK not initialized yet - continuing anyway");
-        }
-        else if (MRUK.Instance.Rooms == null || MRUK.Instance.Rooms.Count == 0)
-        {
-            Debug.Log("[InitializationScreen] MRUK initialized but no rooms found");
+            var rooms = RoomDataStorage.Instance.GetCachedRooms();
+            Debug.Log($"[InitializationScreen] Loaded {rooms.Count} offline room(s)");
         }
         else
         {
-            Debug.Log($"[InitializationScreen] Found {MRUK.Instance.Rooms.Count} existing rooms");
+            Debug.LogWarning("[InitializationScreen] RoomDataStorage not ready yet");
         }
         
-        // Complete initialization immediately
+        // Complete initialization immediately (no MRUK wait!)
         CompleteInitialization();
     }
     

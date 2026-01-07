@@ -45,6 +45,67 @@ public class InRoomWallVisualizer : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Generate wall outlines from offline RoomData (NO MRUK dependency!)
+    /// </summary>
+    public void GenerateWallsFromOfflineData(List<RoomData> rooms)
+    {
+        Debug.Log($"[InRoomWallVisualizer] Generating from {rooms.Count} offline rooms");
+        ClearWalls();
+        
+        int wallCount = 0;
+        foreach (var room in rooms)
+        {
+            wallCount += CreateWallsFromOfflineData(room);
+        }
+        
+        RuntimeLogger.WriteLine($"In-Room walls generated from offline data: {wallCount} walls in {rooms.Count} rooms");
+    }
+    
+    int CreateWallsFromOfflineData(RoomData room)
+    {
+        if (room.walls == null || room.walls.Count == 0)
+        {
+            Debug.LogWarning($"[InRoomWallVisualizer] Room {room.roomName} has no walls");
+            return 0;
+        }
+        
+        int count = 0;
+        foreach (var wall in room.walls)
+        {
+            CreateWallLine(wall.start, wall.end, wall.height);
+            count++;
+        }
+        
+        return count;
+    }
+    
+    void CreateWallLine(Vector3 start, Vector3 end, float height)
+    {
+        GameObject wallObj = new GameObject("Wall");
+        wallObj.transform.SetParent(transform);
+        
+        LineRenderer line = wallObj.AddComponent<LineRenderer>();
+        line.material = wallMaterial;
+        line.startColor = wallColor;
+        line.endColor = wallColor;
+        line.startWidth = wallLineWidth;
+        line.endWidth = wallLineWidth;
+        line.positionCount = 5;
+        
+        // Draw vertical rectangle
+        Vector3[] positions = new Vector3[5];
+        positions[0] = start;
+        positions[1] = start + Vector3.up * height;
+        positions[2] = end + Vector3.up * height;
+        positions[3] = end;
+        positions[4] = start; // Close the loop
+        
+        line.SetPositions(positions);
+        
+        visualizedWalls.Add(wallObj);
+    }
+
     public void GenerateWallOutlines()
     {
         ClearWalls();
