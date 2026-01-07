@@ -8,10 +8,10 @@ using UnityEngine;
 public static class ADBTools
 {
     const string outputDir = "Builds/Android";
-    // REMOVED: const string apkName = "QuestHouseDesign.apk";
-    // APK name is now dynamic, based on PlayerSettings.productName
+    // APK name is now dynamic, based on PlayerSettings.productName (set by BuildNameProcessor)
 
-    [MenuItem("Tools/QHD Build APK")]
+    // Build APK - Called by QuestHouseBuildMenu
+    // Do NOT add [MenuItem] here - menu is in QuestHouseBuildMenu.cs
     public static void BuildApk()
     {
         BuildApkInternal(showDialog: true);
@@ -71,7 +71,8 @@ public static class ADBTools
         return report.summary.result;
     }
 
-    [MenuItem("Tools/QHD Build and Install")]
+    // Build and Install - Called by QuestHouseBuildMenu or directly via menu
+    [MenuItem("Tools/ADB/Build and Install on Quest", false, 1)]
     public static void BuildAndInstall()
     {
         // Check device connection first
@@ -405,7 +406,7 @@ public static class ADBTools
         return null;
     }
 
-    [MenuItem("Tools/QHD Uninstall App")]
+    [MenuItem("Tools/ADB/Uninstall App from Quest", false, 2)]
     public static void UninstallApp()
     {
         if (!IsAdbAvailable())
@@ -484,7 +485,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QHD Pull Exports")]
+    [MenuItem("Tools/ADB/Pull Exports from Quest", false, 3)]
     public static void PullExports()
     {
         if (!IsAdbAvailable())

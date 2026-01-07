@@ -76,7 +76,7 @@ public class AutoBootstrapperEditor : Editor
         // Build info section
         if (GUILayout.Button("Show Build Information"))
         {
-            TestModeToggle.ShowBuildInfo();
+            QuestHouseBuildMenu.ShowBuildInfo();
         }
 
         EditorGUILayout.Space(5);
