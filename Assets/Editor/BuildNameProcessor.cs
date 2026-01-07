@@ -57,6 +57,8 @@ public class BuildNameProcessor : IPreprocessBuildWithReport
     
     bool FindTestModeInBuildScenes()
     {
+        Debug.Log("[BuildNameProcessor] Scanning build scenes for AutoBootstrapper...");
+        
         // Get all scenes in build settings
         EditorBuildSettingsScene[] scenes = EditorBuildSettings.scenes;
         
@@ -65,6 +67,8 @@ public class BuildNameProcessor : IPreprocessBuildWithReport
             Debug.LogWarning("[BuildNameProcessor] No scenes in build settings!");
             return false;
         }
+        
+        Debug.Log($"[BuildNameProcessor] Found {scenes.Length} scene(s) in build settings");
 
         // Save currently open scenes
         Scene[] openScenes = new Scene[SceneManager.sceneCount];
@@ -74,12 +78,20 @@ public class BuildNameProcessor : IPreprocessBuildWithReport
         }
 
         bool testModeFound = false;
+        bool bootstrapperFound = false;
 
         // Check each build scene
-        foreach (var sceneSettings in scenes)
+        for (int i = 0; i < scenes.Length; i++)
         {
+            var sceneSettings = scenes[i];
+            
             if (!sceneSettings.enabled)
+            {
+                Debug.Log($"[BuildNameProcessor] Scene {i}: '{sceneSettings.path}' - DISABLED, skipping");
                 continue;
+            }
+            
+            Debug.Log($"[BuildNameProcessor] Scene {i}: '{sceneSettings.path}' - checking...");
 
             try
             {
@@ -88,20 +100,30 @@ public class BuildNameProcessor : IPreprocessBuildWithReport
                 
                 // Find AutoBootstrapper
                 var rootObjects = scene.GetRootGameObjects();
+                Debug.Log($"[BuildNameProcessor]   Searching in {rootObjects.Length} root GameObject(s)...");
+                
                 foreach (var rootObj in rootObjects)
                 {
                     var bootstrapper = rootObj.GetComponentInChildren<AutoBootstrapper>(true);
                     if (bootstrapper != null)
                     {
+                        bootstrapperFound = true;
                         testModeFound = bootstrapper.testModeSimpleUI;
-                        Debug.Log($"[BuildNameProcessor] Found AutoBootstrapper in scene '{scene.name}'");
+                        Debug.Log($"[BuildNameProcessor]   ? Found AutoBootstrapper in '{rootObj.name}'");
                         Debug.Log($"[BuildNameProcessor]   testModeSimpleUI = {testModeFound}");
-                        break;
+                        break; // Found bootstrapper, stop searching in this scene
                     }
                 }
 
-                if (testModeFound)
-                    break;
+                if (bootstrapperFound)
+                {
+                    Debug.Log($"[BuildNameProcessor] Bootstrapper found, stopping scene scan");
+                    break; // Found bootstrapper in a scene, stop checking other scenes
+                }
+                else
+                {
+                    Debug.Log($"[BuildNameProcessor]   No AutoBootstrapper found in this scene");
+                }
             }
             catch (System.Exception ex)
             {
@@ -110,6 +132,7 @@ public class BuildNameProcessor : IPreprocessBuildWithReport
         }
 
         // Restore original scenes
+        Debug.Log($"[BuildNameProcessor] Restoring {openScenes.Length} originally open scene(s)...");
         if (openScenes.Length > 0 && openScenes[0].IsValid())
         {
             try
@@ -122,6 +145,7 @@ public class BuildNameProcessor : IPreprocessBuildWithReport
                         EditorSceneManager.OpenScene(openScenes[i].path, OpenSceneMode.Additive);
                     }
                 }
+                Debug.Log($"[BuildNameProcessor] ? Scenes restored");
             }
             catch (System.Exception ex)
             {
@@ -129,9 +153,10 @@ public class BuildNameProcessor : IPreprocessBuildWithReport
             }
         }
 
-        if (!testModeFound)
+        if (!bootstrapperFound)
         {
-            Debug.LogWarning("[BuildNameProcessor] AutoBootstrapper not found in any build scene - defaulting to PRODUCTION mode");
+            Debug.LogWarning("[BuildNameProcessor] ? AutoBootstrapper NOT FOUND in any build scene!");
+            Debug.LogWarning("[BuildNameProcessor] Defaulting to PRODUCTION mode (no _TestMode suffix)");
         }
 
         return testModeFound;
