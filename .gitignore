@@ -49,6 +49,14 @@ node_modules/
 
 # Logs
 Logs/
+*.log
+build_log.txt
+build_output.log
+
+# Build/Runtime generated files
+gradle.properties
+RuntimeActionBindings.json
+UpgradeLog.htm
 
 # Don't track large generated files
 *.unitypackage
