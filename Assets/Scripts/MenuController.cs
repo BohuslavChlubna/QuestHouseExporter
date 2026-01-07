@@ -296,8 +296,8 @@ public class MenuController : MonoBehaviour
     
     System.Collections.IEnumerator PositionMenuAfterCameraReady()
     {
-        // Wait a few frames for XR camera to initialize
-        for (int i = 0; i < 10 && mainCamera == null; i++)
+        // Wait for XR camera to initialize (max 60 frames = 1 second at 60fps)
+        for (int i = 0; i < 60 && mainCamera == null; i++)
         {
             yield return null;
             FindCamera();
@@ -305,12 +305,16 @@ public class MenuController : MonoBehaviour
         
         if (mainCamera == null)
         {
-            Debug.LogError("[MenuController] CRITICAL: Camera not found after waiting! Menu will not be visible.");
-            RuntimeLogger.WriteLine("ERROR: Camera not found - menu will not be visible!");
+            Debug.LogError("[MenuController] CRITICAL: Camera not found! Using default position (0,1.5,3)");
+            RuntimeLogger.WriteLine("ERROR: Camera not found - using default menu position");
+            
+            // Fallback: position menu at default location
+            menuCanvas.transform.position = new Vector3(0, 1.5f, 3f);
+            menuCanvas.transform.rotation = Quaternion.identity;
         }
         else
         {
-            // Position menu in front of camera - Quest 3 optimized distance
+            // Position menu in front of camera - Quest optimized distance
             Vector3 menuPosition = mainCamera.transform.position + mainCamera.transform.forward * 3f;
             menuCanvas.transform.position = menuPosition;
             
@@ -322,9 +326,11 @@ public class MenuController : MonoBehaviour
                 menuCanvas.transform.rotation = Quaternion.LookRotation(-directionToCamera);
             }
             
-            Debug.Log($"[MenuController] Menu positioned {3f}m in front of camera: {mainCamera.name}");
+            Debug.Log($"[MenuController] Menu positioned 3m in front of camera: {mainCamera.name}");
             RuntimeLogger.WriteLine($"Menu positioned in front of camera: {mainCamera.name} at distance 3m");
         }
+        
+        Debug.Log($"[MenuController] MENU IS NOW VISIBLE at position: {menuCanvas.transform.position}");
     }
     
     void FindCamera()
