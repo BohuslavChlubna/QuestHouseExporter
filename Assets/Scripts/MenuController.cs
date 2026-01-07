@@ -60,9 +60,36 @@ public class MenuController : MonoBehaviour
     {
         if (testModeSimpleUI)
         {
-            Debug.Log("[MenuController] TEST MODE - Skipping visualizations");
+            Debug.Log("[MenuController] TEST MODE - Skipping visualizations completely");
             RuntimeLogger.WriteLine("[MenuController] Running in TEST MODE - UI only, no visualizations");
-            return;
+            
+            // CRITICAL: Update status immediately in test mode
+            if (statusText != null)
+            {
+                if (offlineRooms.Count > 0)
+                {
+                    bool isDefaultRoom = offlineRooms.Count == 1 && 
+                                        offlineRooms[0].roomId == "default_test_room";
+                    
+                    if (isDefaultRoom)
+                    {
+                        statusText.text = "TEST MODE - UI only\nDefault room loaded (4x5m)";
+                        statusText.color = new Color(1f, 0.8f, 0.2f);
+                    }
+                    else
+                    {
+                        statusText.text = $"TEST MODE - UI only\n{offlineRooms.Count} room(s) loaded";
+                        statusText.color = Color.cyan;
+                    }
+                }
+                else
+                {
+                    statusText.text = "TEST MODE - UI only\nNo rooms found";
+                    statusText.color = new Color(1f, 0.5f, 0f);
+                }
+            }
+            
+            return; // STOP HERE - don't even start coroutine!
         }
         
         Debug.Log("[MenuController] Production mode - Scheduling visualization generation (delayed to prevent startup hang)");
