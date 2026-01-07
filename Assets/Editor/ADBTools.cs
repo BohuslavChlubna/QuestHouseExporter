@@ -10,7 +10,7 @@ public static class ADBTools
     const string outputDir = "Builds/Android";
     const string apkName = "QuestHouseDesign.apk";
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Build APK")]
+    [MenuItem("Tools/QHD Build APK")]
     public static void BuildApk()
     {
         BuildApkInternal(showDialog: true);
@@ -67,7 +67,7 @@ public static class ADBTools
         return report.summary.result;
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Build and Install APK")]
+    [MenuItem("Tools/QHD Build and Install")]
     public static void BuildAndInstall()
     {
         // Check device connection first
@@ -211,7 +211,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Enable Wireless ADB")]
+    [MenuItem("Tools/ADB/Enable Wireless ADB")]
     public static void EnableWirelessADB()
     {
         if (!IsAdbAvailable())
@@ -277,7 +277,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Connect to Quest")]
+    [MenuItem("Tools/ADB/Connect to Quest")]
     public static void ConnectWirelessADB()
     {
         if (!IsAdbAvailable())
@@ -307,7 +307,7 @@ public static class ADBTools
         WirelessADBWindow.ShowWindow(lastIP);
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Wireless/Disconnect Wireless")]
+    [MenuItem("Tools/ADB/Disconnect Wireless")]
     public static void DisconnectWirelessADB()
     {
         if (!IsAdbAvailable())
@@ -399,7 +399,7 @@ public static class ADBTools
         return null;
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Uninstall App")]
+    [MenuItem("Tools/QHD Uninstall App")]
     public static void UninstallApp()
     {
         if (!IsAdbAvailable())
@@ -478,7 +478,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Pull Exports from Device")]
+    [MenuItem("Tools/QHD Pull Exports")]
     public static void PullExports()
     {
         if (!IsAdbAvailable())
@@ -524,7 +524,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Logcat/Show Logcat (Unity only)")]
+    [MenuItem("Tools/ADB/Logcat/Show Logcat (Unity)")]
     public static void ShowLogcat()
     {
         if (!IsAdbAvailable())
@@ -559,7 +559,7 @@ public static class ADBTools
         Process.Start(psi);
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Logcat/Clear Logcat")]
+    [MenuItem("Tools/ADB/Logcat/Clear Logcat")]
     public static void ClearLogcat()
     {
         if (!IsAdbAvailable())
@@ -583,7 +583,7 @@ public static class ADBTools
         EditorUtility.DisplayDialog("Logcat Cleared", "Logcat buffer has been cleared.\n\nYou can now start fresh logging.", "OK");
     }
 
-    [MenuItem("Tools/QuestHouseDesign/ADB/Logcat/Save Logcat to File")]
+    [MenuItem("Tools/ADB/Logcat/Save Logcat")]
     public static void SaveLogcat()
     {
         if (!IsAdbAvailable())
