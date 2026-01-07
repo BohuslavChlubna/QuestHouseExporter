@@ -8,7 +8,8 @@ using UnityEngine;
 public static class ADBTools
 {
     const string outputDir = "Builds/Android";
-    const string apkName = "QuestHouseDesign.apk";
+    // REMOVED: const string apkName = "QuestHouseDesign.apk";
+    // APK name is now dynamic, based on PlayerSettings.productName
 
     [MenuItem("Tools/QHD Build APK")]
     public static void BuildApk()
@@ -32,6 +33,9 @@ public static class ADBTools
         }
 
         if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+        
+        // Get APK name from PlayerSettings.productName (BuildNameProcessor may have modified it)
+        string apkName = PlayerSettings.productName + ".apk";
         string apkPath = Path.Combine(outputDir, apkName);
 
         var opts = new BuildPlayerOptions
@@ -42,7 +46,7 @@ public static class ADBTools
             options = BuildOptions.None
         };
 
-        UnityEngine.Debug.Log("Starting build to: " + apkPath);
+        UnityEngine.Debug.Log($"Starting build to: {apkPath} (ProductName: {PlayerSettings.productName})");
         var report = BuildPipeline.BuildPlayer(opts);
         
         if (report.summary.result == BuildResult.Succeeded)
@@ -128,6 +132,8 @@ public static class ADBTools
             return;
         }
         
+        // Get APK path from PlayerSettings (may have _TestMode suffix after BuildNameProcessor)
+        string apkName = PlayerSettings.productName + ".apk";
         string apkPath = Path.Combine(outputDir, apkName);
         if (!File.Exists(apkPath))
         {
