@@ -517,6 +517,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0bb2ead22ddad5459b54a8544da0e13, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AutoBootstrapper
+  testModeSimpleUI: 1
 --- !u!4 &1841796529
 Transform:
   m_ObjectHideFlags: 0
