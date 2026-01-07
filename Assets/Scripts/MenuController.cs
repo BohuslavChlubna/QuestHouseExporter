@@ -359,6 +359,7 @@ public class MenuController : MonoBehaviour
         RuntimeLogger.WriteLine($"[MenuController] Successfully reloaded {offlineRooms.Count} rooms from MRUK");
     }
     
+    
     List<RoomData> ConvertMRUKRoomsToOfflineData(List<MRUKRoom> mrukRooms)
     {
         var result = new List<RoomData>();
@@ -368,18 +369,109 @@ public class MenuController : MonoBehaviour
             var roomData = new RoomData
             {
                 roomId = mrukRoom.Anchor != null ? mrukRoom.Anchor.Uuid.ToString() : System.Guid.NewGuid().ToString(),
-                roomName = mrukRoom.name,
-                ceilingHeight = mrukRoom.GetRoomBounds().size.y
+                roomName = mrukRoom.name ?? "Unnamed Room",
+                ceilingHeight = 2.5f
             };
             
-            // TODO: Add proper MRUK ? RoomData conversion here
-            // For now, store basic data
+            // Get ceiling height
+            if (mrukRoom.CeilingAnchor != null && mrukRoom.FloorAnchor != null)
+            {
+                roomData.ceilingHeight = Mathf.Abs(
+                    mrukRoom.CeilingAnchor.transform.position.y - 
+                    mrukRoom.FloorAnchor.transform.position.y
+                );
+            }
+            
+            // Convert floor boundary
+            if (mrukRoom.FloorAnchor != null && mrukRoom.FloorAnchor.PlaneBoundary2D != null)
+            {
+                var boundary2D = mrukRoom.FloorAnchor.PlaneBoundary2D;
+                Vector3 roomPos = mrukRoom.FloorAnchor.transform.position;
+                Quaternion roomRot = mrukRoom.FloorAnchor.transform.rotation;
+                
+                roomData.floorBoundary = new List<Vector3>();
+                foreach (var pt2D in boundary2D)
+                {
+                    Vector3 worldPos = roomPos + roomRot * new Vector3(pt2D.x, 0, pt2D.y);
+                    roomData.floorBoundary.Add(worldPos);
+                }
+                
+                // Create walls from boundary
+                roomData.walls = new List<WallData>();
+                for (int i = 0; i < boundary2D.Count; i++)
+                {
+                    Vector2 p1 = boundary2D[i];
+                    Vector2 p2 = boundary2D[(i + 1) % boundary2D.Count];
+                    
+                    Vector3 start = roomPos + roomRot * new Vector3(p1.x, 0, p1.y);
+                    Vector3 end = roomPos + roomRot * new Vector3(p2.x, 0, p2.y);
+                    
+                    var wall = new WallData
+                    {
+                        start = start,
+                        end = end,
+                        height = roomData.ceilingHeight,
+                        attachedAnchors = new List<AnchorData>()
+                    };
+                    
+                    roomData.walls.Add(wall);
+                }
+            }
+            
+            // Convert anchors (windows, doors, furniture)
+            roomData.anchors = new List<AnchorData>();
+            foreach (var anchor in mrukRoom.Anchors)
+            {
+                if (anchor == mrukRoom.FloorAnchor || anchor == mrukRoom.CeilingAnchor)
+                    continue;
+                
+                var anchorData = new AnchorData
+                {
+                    anchorType = anchor.Label.ToString(),
+                    position = anchor.transform.position,
+                    rotation = anchor.transform.rotation,
+                    scale = anchor.VolumeBounds.HasValue ? anchor.VolumeBounds.Value.size : Vector3.one * 0.5f
+                };
+                
+                roomData.anchors.Add(anchorData);
+                
+                // Attach anchor to closest wall
+                AttachAnchorToWall(anchorData, roomData.walls);
+            }
             
             result.Add(roomData);
+            RuntimeLogger.WriteLine($"Converted room: {roomData.roomName} - {roomData.walls.Count} walls, {roomData.anchors.Count} anchors");
         }
         
         return result;
     }
+    
+    void AttachAnchorToWall(AnchorData anchor, List<WallData> walls)
+    {
+        if (walls == null || walls.Count == 0) return;
+        
+        // Find closest wall
+        float minDist = float.MaxValue;
+        WallData closestWall = null;
+        
+        foreach (var wall in walls)
+        {
+            Vector3 wallMid = (wall.start + wall.end) * 0.5f;
+            float dist = Vector3.Distance(anchor.position, wallMid);
+            
+            if (dist < minDist)
+            {
+                minDist = dist;
+                closestWall = wall;
+            }
+        }
+        
+        if (closestWall != null)
+        {
+            closestWall.attachedAnchors.Add(anchor);
+        }
+    }
+    
     
     void OnToggleViewMode()
     {

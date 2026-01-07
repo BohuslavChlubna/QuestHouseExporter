@@ -54,12 +54,15 @@ public class InRoomWallVisualizer : MonoBehaviour
         ClearWalls();
         
         int wallCount = 0;
+        int anchorCount = 0;
+        
         foreach (var room in rooms)
         {
             wallCount += CreateWallsFromOfflineData(room);
+            anchorCount += CreateAnchorsFromOfflineData(room);
         }
         
-        RuntimeLogger.WriteLine($"In-Room walls generated from offline data: {wallCount} walls in {rooms.Count} rooms");
+        RuntimeLogger.WriteLine($"In-Room walls generated from offline data: {wallCount} walls, {anchorCount} anchors in {rooms.Count} rooms");
     }
     
     int CreateWallsFromOfflineData(RoomData room)
@@ -73,37 +76,197 @@ public class InRoomWallVisualizer : MonoBehaviour
         int count = 0;
         foreach (var wall in room.walls)
         {
-            CreateWallLine(wall.start, wall.end, wall.height);
+            CreateWallSegmentMesh(wall.start, wall.end, wall.height);
             count++;
+        }
+        
+        // Create floor if enabled
+        if (showFloor && room.floorBoundary != null && room.floorBoundary.Count > 0)
+        {
+            CreateFloorFromOfflineData(room.floorBoundary);
+        }
+        
+        // Create ceiling if enabled
+        if (showCeiling && room.floorBoundary != null && room.floorBoundary.Count > 0)
+        {
+            CreateCeilingFromOfflineData(room.floorBoundary, room.ceilingHeight);
         }
         
         return count;
     }
     
-    void CreateWallLine(Vector3 start, Vector3 end, float height)
+    int CreateAnchorsFromOfflineData(RoomData room)
     {
-        GameObject wallObj = new GameObject("Wall");
-        wallObj.transform.SetParent(transform);
+        if (!showWindowsAndDoors && !showFurniture) return 0;
+        if (room.anchors == null || room.anchors.Count == 0) return 0;
         
-        LineRenderer line = wallObj.AddComponent<LineRenderer>();
-        line.material = wallMaterial;
-        line.startColor = wallColor;
-        line.endColor = wallColor;
-        line.startWidth = wallLineWidth;
-        line.endWidth = wallLineWidth;
-        line.positionCount = 5;
+        int count = 0;
+        foreach (var anchor in room.anchors)
+        {
+            Color anchorColor = wallColor;
+            bool shouldVisualize = false;
+            
+            // Determine color based on anchor type
+            string anchorType = anchor.anchorType.ToUpper();
+            if (anchorType.Contains("WINDOW"))
+            {
+                anchorColor = windowColor;
+                shouldVisualize = showWindowsAndDoors;
+            }
+            else if (anchorType.Contains("DOOR"))
+            {
+                anchorColor = doorColor;
+                shouldVisualize = showWindowsAndDoors;
+            }
+            else if (anchorType.Contains("TABLE") || anchorType.Contains("COUCH") || 
+                     anchorType.Contains("BED") || anchorType.Contains("STORAGE") ||
+                     anchorType.Contains("LAMP") || anchorType.Contains("SCREEN"))
+            {
+                anchorColor = furnitureColor;
+                shouldVisualize = showFurniture;
+            }
+            
+            if (shouldVisualize)
+            {
+                CreateAnchorBoxFromOfflineData(anchor, anchorColor);
+                count++;
+            }
+        }
         
-        // Draw vertical rectangle
-        Vector3[] positions = new Vector3[5];
-        positions[0] = start;
-        positions[1] = start + Vector3.up * height;
-        positions[2] = end + Vector3.up * height;
-        positions[3] = end;
-        positions[4] = start; // Close the loop
+        return count;
+    }
+    
+    void CreateWallSegmentMesh(Vector3 start, Vector3 end, float height)
+    {
+        GameObject wallObj = new GameObject("Wall_Segment");
+        wallObj.transform.SetParent(transform, false);
         
-        line.SetPositions(positions);
+        Vector3 bottom1 = start;
+        Vector3 bottom2 = end;
+        Vector3 top1 = bottom1 + Vector3.up * height;
+        Vector3 top2 = bottom2 + Vector3.up * height;
+        
+        // Create wall quad mesh
+        Mesh mesh = new Mesh();
+        
+        Vector3[] vertices = new Vector3[]
+        {
+            bottom1, bottom2, top2, top1, // Front face
+            bottom2, bottom1, top1, top2  // Back face (for double-sided rendering)
+        };
+        
+        int[] triangles = new int[]
+        {
+            0, 2, 1, 0, 3, 2, // Front
+            4, 6, 5, 4, 7, 6  // Back
+        };
+        
+        Vector2[] uvs = new Vector2[]
+        {
+            new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1),
+            new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1)
+        };
+        
+        mesh.vertices = vertices;
+        mesh.triangles = triangles;
+        mesh.uv = uvs;
+        mesh.RecalculateNormals();
+        
+        var mf = wallObj.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+        
+        var mr = wallObj.AddComponent<MeshRenderer>();
+        Material mat = new Material(wallMaterial);
+        mat.color = wallColor;
+        mr.material = mat;
         
         visualizedWalls.Add(wallObj);
+    }
+    
+    void CreateFloorFromOfflineData(List<Vector3> boundary)
+    {
+        GameObject floorObj = new GameObject("Floor_Outline");
+        floorObj.transform.SetParent(transform, false);
+        
+        Mesh mesh = new Mesh();
+        mesh.vertices = boundary.ToArray();
+        
+        // Triangulate
+        int[] tris = new int[(boundary.Count - 2) * 3];
+        for (int i = 0; i < boundary.Count - 2; i++)
+        {
+            tris[i * 3 + 0] = 0;
+            tris[i * 3 + 1] = i + 1;
+            tris[i * 3 + 2] = i + 2;
+        }
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        
+        var mf = floorObj.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+        
+        var mr = floorObj.AddComponent<MeshRenderer>();
+        Material mat = new Material(wallMaterial);
+        mat.color = new Color(wallColor.r, wallColor.g, wallColor.b, floorOpacity);
+        mr.material = mat;
+        
+        visualizedWalls.Add(floorObj);
+    }
+    
+    void CreateCeilingFromOfflineData(List<Vector3> boundary, float height)
+    {
+        GameObject ceilingObj = new GameObject("Ceiling_Outline");
+        ceilingObj.transform.SetParent(transform, false);
+        
+        Mesh mesh = new Mesh();
+        Vector3[] verts = new Vector3[boundary.Count];
+        
+        for (int i = 0; i < boundary.Count; i++)
+        {
+            verts[i] = boundary[i] + Vector3.up * height;
+        }
+        mesh.vertices = verts;
+        
+        // Triangulate (reversed winding for ceiling)
+        int[] tris = new int[(boundary.Count - 2) * 3];
+        for (int i = 0; i < boundary.Count - 2; i++)
+        {
+            tris[i * 3 + 0] = 0;
+            tris[i * 3 + 2] = i + 1;
+            tris[i * 3 + 1] = i + 2;
+        }
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        
+        var mf = ceilingObj.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+        
+        var mr = ceilingObj.AddComponent<MeshRenderer>();
+        Material mat = new Material(wallMaterial);
+        mat.color = new Color(wallColor.r, wallColor.g, wallColor.b, floorOpacity);
+        mr.material = mat;
+        
+        visualizedWalls.Add(ceilingObj);
+    }
+    
+    void CreateAnchorBoxFromOfflineData(AnchorData anchor, Color color)
+    {
+        GameObject boxObj = new GameObject($"Anchor_{anchor.anchorType}");
+        boxObj.transform.SetParent(transform, false);
+        boxObj.transform.position = anchor.position;
+        boxObj.transform.rotation = anchor.rotation;
+        
+        // Create simple box mesh
+        Mesh mesh = CreateBoxMesh(anchor.scale);
+        var mf = boxObj.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+        
+        var mr = boxObj.AddComponent<MeshRenderer>();
+        Material mat = new Material(wallMaterial);
+        mat.color = color;
+        mr.material = mat;
+        
+        visualizedWalls.Add(boxObj);
     }
 
     public void GenerateWallOutlines()

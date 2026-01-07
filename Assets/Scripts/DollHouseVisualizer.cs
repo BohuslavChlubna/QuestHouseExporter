@@ -37,15 +37,51 @@ public class DollHouseVisualizer : MonoBehaviour
         Debug.Log($"[DollHouseVisualizer] Generating from {rooms.Count} offline rooms");
         ClearDollHouse();
         
-        foreach (var room in rooms)
+        // Group rooms by floor level
+        var floorGroups = GroupRoomsByFloorOffline(rooms);
+        Debug.Log($"[DollHouseVisualizer] Detected {floorGroups.Count} floor levels");
+        
+        foreach (var floorKvp in floorGroups)
         {
-            CreateRoomVisualizationFromOfflineData(room);
+            int floorLevel = floorKvp.Key;
+            var floorRooms = floorKvp.Value;
+            
+            Debug.Log($"[DollHouseVisualizer] Processing floor {floorLevel} with {floorRooms.Count} rooms");
+            
+            foreach (var room in floorRooms)
+            {
+                CreateRoomVisualizationFromOfflineData(room, floorLevel);
+            }
         }
         
-        RuntimeLogger.WriteLine($"Doll house generated from offline data: {visualizedRooms.Count} rooms");
+        RuntimeLogger.WriteLine($"Doll house generated from offline data: {visualizedRooms.Count} rooms across {floorGroups.Count} floors");
     }
     
-    void CreateRoomVisualizationFromOfflineData(RoomData room)
+    Dictionary<int, List<RoomData>> GroupRoomsByFloorOffline(List<RoomData> rooms)
+    {
+        var groups = new Dictionary<int, List<RoomData>>();
+        
+        foreach (var room in rooms)
+        {
+            // Detect floor level from room's Y position
+            float floorY = 0f;
+            if (room.floorBoundary != null && room.floorBoundary.Count > 0)
+            {
+                floorY = room.floorBoundary[0].y;
+            }
+            
+            int floorLevel = Mathf.RoundToInt(floorY / 3.0f); // assume ~3m per floor
+            
+            if (!groups.ContainsKey(floorLevel))
+                groups[floorLevel] = new List<RoomData>();
+            
+            groups[floorLevel].Add(room);
+        }
+        
+        return groups;
+    }
+    
+    void CreateRoomVisualizationFromOfflineData(RoomData room, int floorLevel)
     {
         if (room.floorBoundary == null || room.floorBoundary.Count < 3)
         {
@@ -56,25 +92,81 @@ public class DollHouseVisualizer : MonoBehaviour
         var go = new GameObject($"DH_{room.roomName}");
         go.transform.SetParent(transform, false);
         
-        // Position at origin, scaled down
-        go.transform.localPosition = Vector3.zero;
+        // Calculate room center
+        Vector3 roomCenter = Vector3.zero;
+        foreach (var pt in room.floorBoundary)
+        {
+            roomCenter += pt;
+        }
+        roomCenter /= room.floorBoundary.Count;
+        
+        // Position scaled down, offset by floor level
+        Vector3 scaledCenter = roomCenter * scale;
+        scaledCenter.y = floorLevel * floorSpacing;
+        go.transform.localPosition = scaledCenter;
         go.transform.localScale = Vector3.one * scale;
         
         // Create floor mesh from boundary
-        Mesh mesh = CreateFloorMeshFromOfflineData(room.floorBoundary);
+        Mesh floorMesh = CreateFloorMeshFromOfflineData(room.floorBoundary, roomCenter);
         var mf = go.AddComponent<MeshFilter>();
-        mf.mesh = mesh;
+        mf.mesh = floorMesh;
         var mr = go.AddComponent<MeshRenderer>();
         mr.material = roomMaterial;
         
+        // Create walls
+        if (room.walls != null && room.walls.Count > 0)
+        {
+            foreach (var wall in room.walls)
+            {
+                CreateWallVisualization(wall, go.transform, roomCenter, floorLevel);
+            }
+        }
+        
         visualizedRooms.Add(go);
-        Debug.Log($"[DollHouseVisualizer] Created room: {room.roomName}");
+        Debug.Log($"[DollHouseVisualizer] Created room: {room.roomName} on floor {floorLevel}");
     }
     
-    Mesh CreateFloorMeshFromOfflineData(List<Vector3> boundary)
+    void CreateWallVisualization(WallData wall, Transform parent, Vector3 roomCenter, int floorLevel)
+    {
+        var wallObj = new GameObject("Wall");
+        wallObj.transform.SetParent(parent, false);
+        
+        // Convert to local coordinates (relative to room center)
+        Vector3 localStart = (wall.start - roomCenter);
+        Vector3 localEnd = (wall.end - roomCenter);
+        
+        // Create wall quad
+        Vector3 bottom1 = localStart;
+        Vector3 bottom2 = localEnd;
+        Vector3 top1 = localStart + Vector3.up * wall.height;
+        Vector3 top2 = localEnd + Vector3.up * wall.height;
+        
+        Mesh wallMesh = new Mesh();
+        wallMesh.vertices = new Vector3[] { bottom1, bottom2, top2, top1 };
+        wallMesh.triangles = new int[] { 0, 1, 2, 0, 2, 3 };
+        wallMesh.RecalculateNormals();
+        
+        var mf = wallObj.AddComponent<MeshFilter>();
+        mf.mesh = wallMesh;
+        
+        var mr = wallObj.AddComponent<MeshRenderer>();
+        Material wallMat = new Material(roomMaterial);
+        wallMat.color = new Color(0.6f, 0.6f, 0.7f, 0.8f); // Slightly different color for walls
+        mr.material = wallMat;
+    }
+    
+    Mesh CreateFloorMeshFromOfflineData(List<Vector3> boundary, Vector3 center)
     {
         Mesh mesh = new Mesh();
-        mesh.vertices = boundary.ToArray();
+        
+        // Convert to local coordinates (relative to center)
+        Vector3[] verts = new Vector3[boundary.Count];
+        for (int i = 0; i < boundary.Count; i++)
+        {
+            verts[i] = boundary[i] - center;
+            verts[i].y = 0; // Flatten to floor level
+        }
+        mesh.vertices = verts;
         
         // Simple triangulation (fan from first vertex)
         int[] tris = new int[(boundary.Count - 2) * 3];
