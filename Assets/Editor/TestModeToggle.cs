@@ -148,5 +148,102 @@ public class TestModeToggle : EditorWindow
         Debug.Log($"  Test Mode: {isTestMode}");
         Debug.Log($"  Expected APK: {expectedAPKName}");
     }
+    
+    [MenuItem("Tools/Quest House Design/Open Build Folder")]
+    public static void OpenBuildFolder()
+    {
+        string buildPath = System.IO.Path.Combine(UnityEngine.Application.dataPath, "..", "Builds", "Android");
+        buildPath = System.IO.Path.GetFullPath(buildPath);
+        
+        if (!System.IO.Directory.Exists(buildPath))
+        {
+            bool create = EditorUtility.DisplayDialog(
+                "Build Folder Not Found",
+                $"Build folder does not exist:\n{buildPath}\n\nDo you want to create it?",
+                "Create",
+                "Cancel"
+            );
+            
+            if (create)
+            {
+                System.IO.Directory.CreateDirectory(buildPath);
+                Debug.Log($"[TestModeToggle] Created build folder: {buildPath}");
+            }
+            else
+            {
+                return;
+            }
+        }
+        
+        // Open folder in Windows Explorer
+        EditorUtility.RevealInFinder(buildPath);
+        Debug.Log($"[TestModeToggle] Opened build folder: {buildPath}");
+    }
+    
+    [MenuItem("Tools/Quest House Design/Show Build Files Info")]
+    public static void ShowBuildFilesInfo()
+    {
+        string buildPath = System.IO.Path.Combine(UnityEngine.Application.dataPath, "..", "Builds", "Android");
+        buildPath = System.IO.Path.GetFullPath(buildPath);
+        
+        if (!System.IO.Directory.Exists(buildPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Build Folder Not Found",
+                $"Build folder does not exist:\n{buildPath}\n\nBuild an APK first.",
+                "OK"
+            );
+            return;
+        }
+        
+        var apkFiles = System.IO.Directory.GetFiles(buildPath, "*.apk");
+        
+        if (apkFiles.Length == 0)
+        {
+            EditorUtility.DisplayDialog(
+                "No APK Files Found",
+                $"No APK files found in:\n{buildPath}\n\nBuild an APK first.",
+                "OK"
+            );
+            return;
+        }
+        
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Build Folder: {buildPath}\n");
+        sb.AppendLine($"Found {apkFiles.Length} APK file(s):\n");
+        
+        foreach (var apkPath in apkFiles)
+        {
+            var fileInfo = new System.IO.FileInfo(apkPath);
+            string fileName = System.IO.Path.GetFileName(apkPath);
+            long sizeInMB = fileInfo.Length / (1024 * 1024);
+            string lastModified = fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss");
+            
+            sb.AppendLine($"?? {fileName}");
+            sb.AppendLine($"   Size: {sizeInMB} MB ({fileInfo.Length:N0} bytes)");
+            sb.AppendLine($"   Modified: {lastModified}");
+            sb.AppendLine();
+        }
+        
+        // Add button to open folder
+        int result = EditorUtility.DisplayDialogComplex(
+            "Build Files Information",
+            sb.ToString(),
+            "Open Folder",
+            "Close",
+            "Copy Path"
+        );
+        
+        if (result == 0) // Open Folder
+        {
+            EditorUtility.RevealInFinder(buildPath);
+        }
+        else if (result == 2) // Copy Path
+        {
+            EditorGUIUtility.systemCopyBuffer = buildPath;
+            Debug.Log($"[TestModeToggle] Copied to clipboard: {buildPath}");
+        }
+    }
 }
+
 
