@@ -28,21 +28,52 @@ public class InRoomWallVisualizer : MonoBehaviour
 
     void Start()
     {
+        Debug.Log("[InRoomWallVisualizer] Start() - Initializing materials...");
+        
         if (wallMaterial == null)
         {
+            // Try custom shader first
             var shader = Shader.Find("QuestHouse/UnlitColor");
             if (shader == null)
             {
-                // Fallback to standard Unlit/Color if custom shader not found
+                Debug.LogWarning("[InRoomWallVisualizer] Custom shader 'QuestHouse/UnlitColor' not found, trying fallback...");
                 shader = Shader.Find("Unlit/Color");
             }
             if (shader == null)
             {
-                Debug.LogError("[InRoomWallVisualizer] Could not find shader! Make sure shaders are included in build.");
+                // Last resort - try Standard shader
+                Debug.LogWarning("[InRoomWallVisualizer] 'Unlit/Color' not found, trying Standard...");
+                shader = Shader.Find("Standard");
+            }
+            
+            if (shader == null)
+            {
+                Debug.LogError("[InRoomWallVisualizer] CRITICAL: No shaders found! Cannot create materials. Wall visualization will NOT work.");
+                RuntimeLogger.WriteLine("ERROR: InRoomWallVisualizer - No shaders available");
+                enabled = false; // Disable this component to prevent further issues
                 return;
             }
+            
+            Debug.Log($"[InRoomWallVisualizer] Using shader: {shader.name}");
+            RuntimeLogger.WriteLine($"InRoomWallVisualizer shader: {shader.name}");
+            
             wallMaterial = new Material(shader);
+            
+            // Enable transparency if using Standard shader
+            if (shader.name == "Standard")
+            {
+                wallMaterial.SetFloat("_Mode", 3); // Transparent mode
+                wallMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                wallMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                wallMaterial.SetInt("_ZWrite", 0);
+                wallMaterial.DisableKeyword("_ALPHATEST_ON");
+                wallMaterial.EnableKeyword("_ALPHABLEND_ON");
+                wallMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                wallMaterial.renderQueue = 3000;
+            }
         }
+        
+        Debug.Log("[InRoomWallVisualizer] Material initialization complete");
     }
 
     /// <summary>

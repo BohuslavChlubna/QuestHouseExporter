@@ -16,17 +16,53 @@ public class DollHouseVisualizer : MonoBehaviour
 
     void Start()
     {
+        Debug.Log("[DollHouseVisualizer] Start() - Initializing materials...");
+        
         if (roomMaterial == null)
         {
-            var shader = Shader.Find("QuestHouse/UnlitColor") ?? Shader.Find("Unlit/Color");
+            // Try custom shader first
+            var shader = Shader.Find("QuestHouse/UnlitColor");
             if (shader == null)
             {
-                Debug.LogError("[DollHouseVisualizer] Could not find Unlit/Color shader! Make sure shaders are included in build.");
+                Debug.LogWarning("[DollHouseVisualizer] Custom shader 'QuestHouse/UnlitColor' not found, trying fallback...");
+                shader = Shader.Find("Unlit/Color");
+            }
+            if (shader == null)
+            {
+                // Last resort - try Standard shader
+                Debug.LogWarning("[DollHouseVisualizer] 'Unlit/Color' not found, trying Standard...");
+                shader = Shader.Find("Standard");
+            }
+            
+            if (shader == null)
+            {
+                Debug.LogError("[DollHouseVisualizer] CRITICAL: No shaders found! Cannot create materials. Doll house visualization will NOT work.");
+                RuntimeLogger.WriteLine("ERROR: DollHouseVisualizer - No shaders available");
+                enabled = false; // Disable this component to prevent further issues
                 return;
             }
+            
+            Debug.Log($"[DollHouseVisualizer] Using shader: {shader.name}");
+            RuntimeLogger.WriteLine($"DollHouseVisualizer shader: {shader.name}");
+            
             roomMaterial = new Material(shader);
             roomMaterial.color = new Color(0.8f, 0.8f, 0.9f, 0.5f);
+            
+            // Enable transparency if using Standard shader
+            if (shader.name == "Standard")
+            {
+                roomMaterial.SetFloat("_Mode", 3); // Transparent mode
+                roomMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                roomMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                roomMaterial.SetInt("_ZWrite", 0);
+                roomMaterial.DisableKeyword("_ALPHATEST_ON");
+                roomMaterial.EnableKeyword("_ALPHABLEND_ON");
+                roomMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                roomMaterial.renderQueue = 3000;
+            }
         }
+        
+        Debug.Log("[DollHouseVisualizer] Material initialization complete");
     }
 
     /// <summary>

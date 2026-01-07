@@ -65,22 +65,88 @@ public class MenuController : MonoBehaviour
             return;
         }
         
-        Debug.Log("[MenuController] Generating initial visualizations from offline data");
+        Debug.Log("[MenuController] Production mode - Scheduling visualization generation (delayed to prevent startup hang)");
+        RuntimeLogger.WriteLine("[MenuController] Production mode - Visualizations will be generated after UI is ready");
         
-        // Generate visualizations from offline RoomData (NO MRUK access!)
-        if (dollHouseVisualizer != null)
+        // IMPORTANT: Delay visualization generation to prevent startup hang
+        // This allows the UI to show first, then visualizations are created asynchronously
+        StartCoroutine(DelayedVisualizationGeneration());
+    }
+    
+    System.Collections.IEnumerator DelayedVisualizationGeneration()
+    {
+        // Wait for UI to be fully shown
+        yield return new WaitForSeconds(0.5f);
+        
+        Debug.Log("[MenuController] Starting delayed visualization generation from offline data");
+        
+        bool success = true;
+        string errorMessage = "";
+        
+        // Generate DollHouse
+        if (dollHouseVisualizer != null && dollHouseVisualizer.enabled)
         {
-            dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
-            Debug.Log("[MenuController] Doll house generated from offline data");
+            try
+            {
+                Debug.Log("[MenuController] Generating doll house...");
+                dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
+                Debug.Log("[MenuController] Doll house generated");
+            }
+            catch (System.Exception ex)
+            {
+                success = false;
+                errorMessage = $"DollHouse error: {ex.Message}";
+                Debug.LogError($"[MenuController] DollHouse generation failed: {ex.Message}");
+                RuntimeLogger.LogException(ex);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[MenuController] DollHouseVisualizer is disabled or null");
         }
         
-        if (inRoomWallVisualizer != null)
+        // Wait a frame to prevent frame drop
+        yield return null;
+        
+        // Generate InRoom walls
+        if (inRoomWallVisualizer != null && inRoomWallVisualizer.enabled)
         {
-            inRoomWallVisualizer.GenerateWallsFromOfflineData(offlineRooms);
-            Debug.Log("[MenuController] In-room walls generated from offline data");
+            try
+            {
+                Debug.Log("[MenuController] Generating in-room walls...");
+                inRoomWallVisualizer.GenerateWallsFromOfflineData(offlineRooms);
+                Debug.Log("[MenuController] In-room walls generated");
+            }
+            catch (System.Exception ex)
+            {
+                success = false;
+                errorMessage = $"InRoom error: {ex.Message}";
+                Debug.LogError($"[MenuController] InRoom generation failed: {ex.Message}");
+                RuntimeLogger.LogException(ex);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[MenuController] InRoomWallVisualizer is disabled or null");
         }
         
         // Update status
+        if (success)
+        {
+            UpdateStatusAfterVisualization();
+        }
+        else
+        {
+            if (statusText != null)
+            {
+                statusText.text = $"Visualization error!\n{errorMessage}\nUI still works.";
+                statusText.color = Color.red;
+            }
+        }
+    }
+    
+    void UpdateStatusAfterVisualization()
+    {
         if (statusText != null)
         {
             if (offlineRooms.Count > 0)
