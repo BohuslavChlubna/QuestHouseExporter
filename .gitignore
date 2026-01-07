@@ -44,6 +44,9 @@ Packages/packages-lock.json
 # Gradle
 .gradle/
 
+# Unity Native Tools (CMake build artifacts)
+.utmp/
+
 # Node
 node_modules/
 
