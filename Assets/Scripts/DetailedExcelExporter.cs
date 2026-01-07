@@ -46,6 +46,121 @@ public static class DetailedExcelExporter
         public string wallSide;
     }
     
+    /// <summary>
+    /// Export from offline RoomData (NO MRUK dependency!)
+    /// </summary>
+    public static void ExportToExcelFromOfflineData(List<global::RoomData> offlineRooms, string outputPath)
+    {
+        RuntimeLogger.WriteLine("=== DetailedExcelExporter: Starting Excel export from offline data ===");
+        
+        List<RoomData> allRoomData = new List<RoomData>();
+        
+        foreach (var offlineRoom in offlineRooms)
+        {
+            var roomData = ProcessOfflineRoom(offlineRoom);
+            if (roomData != null)
+            {
+                allRoomData.Add(roomData);
+                RuntimeLogger.WriteLine($"Processed room: {roomData.roomName} with {roomData.walls.Count} walls, " +
+                    $"{roomData.windows.Count} windows, {roomData.doors.Count} doors");
+            }
+        }
+        
+        // Export sheets
+        ExportSummarySheet(allRoomData, Path.Combine(outputPath, "rooms_summary.csv"));
+        ExportWallsSheet(allRoomData, Path.Combine(outputPath, "walls_details.csv"));
+        ExportOpeningsSheet(allRoomData, Path.Combine(outputPath, "openings_details.csv"));
+        
+        RuntimeLogger.WriteLine($"Excel export completed: {allRoomData.Count} rooms processed");
+    }
+    
+    static RoomData ProcessOfflineRoom(global::RoomData offlineRoom)
+    {
+        var data = new RoomData();
+        
+        data.roomName = offlineRoom.roomName ?? "Unknown Room";
+        
+        // Determine floor level
+        float floorY = 0f;
+        if (offlineRoom.floorBoundary != null && offlineRoom.floorBoundary.Count > 0)
+        {
+            floorY = offlineRoom.floorBoundary[0].y;
+        }
+        data.floorLevel = Mathf.RoundToInt(floorY / 3.0f);
+        
+        data.ceilingHeight = offlineRoom.ceilingHeight;
+        
+        // Calculate floor area
+        data.floorArea = CalculatePolygonArea(offlineRoom.floorBoundary);
+        
+        // Process walls
+        if (offlineRoom.walls != null)
+        {
+            foreach (var wall in offlineRoom.walls)
+            {
+                var wallData = new WallData
+                {
+                    startPos = wall.start,
+                    endPos = wall.end,
+                    length = Vector3.Distance(wall.start, wall.end),
+                    height = wall.height
+                };
+                data.walls.Add(wallData);
+            }
+        }
+        
+        // Process anchors
+        if (offlineRoom.anchors != null)
+        {
+            foreach (var anchor in offlineRoom.anchors)
+            {
+                string anchorType = anchor.anchorType.ToUpper();
+                
+                if (anchorType.Contains("WINDOW"))
+                {
+                    var window = new WindowData
+                    {
+                        position = anchor.position,
+                        width = anchor.scale.x,
+                        height = anchor.scale.y,
+                        wallSide = DetermineWallSide(anchor.position, data)
+                    };
+                    data.windows.Add(window);
+                }
+                else if (anchorType.Contains("DOOR"))
+                {
+                    var door = new DoorData
+                    {
+                        position = anchor.position,
+                        width = anchor.scale.x,
+                        height = anchor.scale.y,
+                        wallSide = DetermineWallSide(anchor.position, data)
+                    };
+                    data.doors.Add(door);
+                }
+            }
+        }
+        
+        return data;
+    }
+    
+    static float CalculatePolygonArea(List<Vector3> points)
+    {
+        if (points == null || points.Count < 3) return 0f;
+        
+        float area = 0f;
+        int n = points.Count;
+        
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            area += points[i].x * points[j].z;
+            area -= points[j].x * points[i].z;
+        }
+        
+        return Mathf.Abs(area) / 2f;
+    }
+    
     public static void ExportToExcel(List<MRUKRoom> rooms, string outputPath)
     {
         RuntimeLogger.WriteLine("=== DetailedExcelExporter: Starting Excel export ===");

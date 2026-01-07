@@ -21,6 +21,7 @@ public class MRUKRoomExporter : MonoBehaviour
 
     /// <summary>
     /// Export from offline RoomData (NO MRUK dependency!)
+    /// Performs same exports as PerformExport but from offline data.
     /// </summary>
     public void ExportFromOfflineRooms(List<RoomData> offlineRooms)
     {
@@ -31,27 +32,250 @@ public class MRUKRoomExporter : MonoBehaviour
             return;
         }
         
-        RuntimeLogger.WriteLine($"[MRUKRoomExporter] Exporting {offlineRooms.Count} offline rooms");
-        
         try
         {
             RuntimeLogger.Init(exportFolder);
+            RuntimeLogger.WriteLine("=== MRUKRoomExporter.ExportFromOfflineRooms started ===");
+            
             string basePath = Path.Combine(Application.persistentDataPath, exportFolder);
             Directory.CreateDirectory(basePath);
             
-            // Simple JSON export for now
-            string jsonPath = Path.Combine(basePath, "offline_rooms.json");
-            var wrapper = new { rooms = offlineRooms };
-            string json = JsonUtility.ToJson(wrapper, true);
-            File.WriteAllText(jsonPath, json);
+            RuntimeLogger.WriteLine($"Exporting {offlineRooms.Count} offline rooms");
             
-            RuntimeLogger.WriteLine($"Exported {offlineRooms.Count} offline rooms to: {jsonPath}");
-            Debug.Log($"[MRUKRoomExporter] Export complete: {jsonPath}");
+            // Group rooms by floor level
+            var floorGroups = GroupRoomsByFloorOffline(offlineRooms);
+            RuntimeLogger.WriteLine($"Detected {floorGroups.Count} floor levels");
+            
+            List<Dictionary<string, object>> jsonList = new List<Dictionary<string, object>>();
+            int roomIndex = 0;
+            
+            foreach (var floorKvp in floorGroups.OrderBy(kv => kv.Key))
+            {
+                int floorLevel = floorKvp.Key;
+                var floorRooms = floorKvp.Value;
+                RuntimeLogger.WriteLine($"Processing floor {floorLevel} with {floorRooms.Count} rooms");
+                
+                foreach (var room in floorRooms)
+                {
+                    roomIndex++;
+                    string roomName = room.roomName ?? $"Room_{roomIndex}";
+                    RuntimeLogger.WriteLine($"  Exporting room: {roomName}");
+                    
+                    var roomData = ExportRoomFromOfflineData(room, roomName, floorLevel, basePath);
+                    if (roomData != null) jsonList.Add(roomData);
+                }
+                
+                // Export SVG floor plan for this floor
+                if (exportSVGFloorPlans)
+                {
+                    string svgPath = Path.Combine(basePath, $"Floor_{floorLevel}_plan.svg");
+                    SVGFloorPlanGenerator.GenerateFloorPlanFromOfflineData(floorRooms, svgPath, floorLevel);
+                    RuntimeLogger.WriteLine($"  Exported SVG floor plan: {svgPath}");
+                }
+            }
+            
+            // Export unified GLTF/OBJ house model
+            if (exportUnifiedGLTF || exportOBJ)
+            {
+                string modelPath = Path.Combine(basePath, exportOBJ ? "UnifiedHouse.obj" : "UnifiedHouse.gltf");
+                GLTFHouseExporter.ExportUnifiedHouseFromOfflineData(offlineRooms, modelPath, exportOBJ);
+                RuntimeLogger.WriteLine($"Exported unified house model: {modelPath}");
+            }
+            
+            // Export detailed Excel data
+            if (exportDetailedExcel)
+            {
+                DetailedExcelExporter.ExportToExcelFromOfflineData(offlineRooms, basePath);
+                RuntimeLogger.WriteLine($"Exported detailed Excel data to: {basePath}");
+            }
+            
+            // Export summary files
+            ExportSummaryCSV(basePath, jsonList);
+            ExportSummaryJSON(basePath, jsonList);
+            
+            // Save raw offline room data as well
+            string offlineJsonPath = Path.Combine(basePath, "offline_rooms_raw.json");
+            var wrapper = new RoomDataListWrapper { rooms = offlineRooms };
+            string rawJson = JsonUtility.ToJson(wrapper, true);
+            File.WriteAllText(offlineJsonPath, rawJson);
+            
+            RuntimeLogger.WriteLine($"Export completed: {jsonList.Count} rooms exported to {basePath}");
+            Debug.Log($"[MRUKRoomExporter] Export complete: {basePath}");
+            RuntimeLogger.WriteLine("=== Export completed successfully ===");
         }
         catch (Exception ex)
         {
             RuntimeLogger.WriteLine($"ERROR during offline export: {ex.Message}");
+            RuntimeLogger.LogException(ex);
             Debug.LogError($"ExportFromOfflineRooms failed: {ex}");
+        }
+    }
+    
+    Dictionary<int, List<RoomData>> GroupRoomsByFloorOffline(List<RoomData> rooms)
+    {
+        var groups = new Dictionary<int, List<RoomData>>();
+        foreach (var room in rooms)
+        {
+            float floorY = 0f;
+            if (room.floorBoundary != null && room.floorBoundary.Count > 0)
+            {
+                floorY = room.floorBoundary[0].y;
+            }
+            
+            int floorLevel = Mathf.RoundToInt(floorY / 3.0f);
+            if (!groups.ContainsKey(floorLevel)) groups[floorLevel] = new List<RoomData>();
+            groups[floorLevel].Add(room);
+        }
+        return groups;
+    }
+    
+    Dictionary<string, object> ExportRoomFromOfflineData(RoomData room, string roomName, int floorLevel, string basePath)
+    {
+        var roomData = new Dictionary<string, object>();
+        roomData["name"] = roomName;
+        roomData["floor_level"] = floorLevel;
+        
+        // Calculate floor area
+        float area = CalculateFloorArea(room.floorBoundary);
+        roomData["area_m2"] = area;
+        
+        // Count windows and doors from anchors
+        int windowCount = 0;
+        int doorCount = 0;
+        List<object> windows = new List<object>();
+        List<object> doors = new List<object>();
+        
+        if (room.anchors != null)
+        {
+            foreach (var anchor in room.anchors)
+            {
+                string anchorType = anchor.anchorType.ToUpper();
+                if (anchorType.Contains("WINDOW"))
+                {
+                    windowCount++;
+                    windows.Add(new Dictionary<string, object>
+                    {
+                        { "position", $"{anchor.position.x:F2},{anchor.position.y:F2},{anchor.position.z:F2}" },
+                        { "size", $"{anchor.scale.x:F2}x{anchor.scale.y:F2}" }
+                    });
+                }
+                else if (anchorType.Contains("DOOR"))
+                {
+                    doorCount++;
+                    doors.Add(new Dictionary<string, object>
+                    {
+                        { "position", $"{anchor.position.x:F2},{anchor.position.y:F2},{anchor.position.z:F2}" },
+                        { "size", $"{anchor.scale.x:F2}x{anchor.scale.y:F2}" }
+                    });
+                }
+            }
+        }
+        
+        roomData["windows"] = windows;
+        roomData["doors"] = doors;
+        roomData["num_walls"] = room.walls != null ? room.walls.Count : 0;
+        roomData["ceiling_height"] = room.ceilingHeight;
+        
+        // Export individual room OBJ if enabled
+        if (exportOBJ)
+        {
+            string objPath = Path.Combine(basePath, $"{roomName}_Floor{floorLevel}.obj");
+            ExportRoomAsOBJ(room, objPath);
+            RuntimeLogger.WriteLine($"    Exported OBJ: {objPath}");
+        }
+        
+        RuntimeLogger.WriteLine($"    Room {roomName}: floor={floorLevel}, area={area:F2}m?, walls={room.walls?.Count ?? 0}, windows={windowCount}, doors={doorCount}");
+        return roomData;
+    }
+    
+    float CalculateFloorArea(List<Vector3> boundary)
+    {
+        if (boundary == null || boundary.Count < 3) return 0f;
+        
+        // Shoelace formula for polygon area
+        float area = 0f;
+        int n = boundary.Count;
+        
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            area += boundary[i].x * boundary[j].z;
+            area -= boundary[j].x * boundary[i].z;
+        }
+        
+        return Mathf.Abs(area) / 2f;
+    }
+    
+    void ExportRoomAsOBJ(RoomData room, string path)
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"# Unity OBJ Export - {room.roomName}");
+            sb.AppendLine($"# Generated: {System.DateTime.Now}");
+            sb.AppendLine();
+            
+            int vertexOffset = 1; // OBJ indices start at 1
+            
+            // Export floor
+            if (room.floorBoundary != null && room.floorBoundary.Count > 0)
+            {
+                sb.AppendLine("# Floor");
+                sb.AppendLine("g Floor");
+                
+                foreach (var v in room.floorBoundary)
+                {
+                    sb.AppendLine($"v {v.x:F6} {v.y:F6} {v.z:F6}");
+                }
+                
+                sb.AppendLine("vn 0.000000 1.000000 0.000000");
+                
+                // Triangulate floor (fan from first vertex)
+                for (int i = 0; i < room.floorBoundary.Count - 2; i++)
+                {
+                    sb.AppendLine($"f {vertexOffset}//{vertexOffset} {vertexOffset + i + 1}//{vertexOffset} {vertexOffset + i + 2}//{vertexOffset}");
+                }
+                
+                vertexOffset += room.floorBoundary.Count;
+            }
+            
+            // Export walls
+            if (room.walls != null && room.walls.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("# Walls");
+                sb.AppendLine("g Walls");
+                
+                foreach (var wall in room.walls)
+                {
+                    Vector3 bottom1 = wall.start;
+                    Vector3 bottom2 = wall.end;
+                    Vector3 top1 = wall.start + Vector3.up * wall.height;
+                    Vector3 top2 = wall.end + Vector3.up * wall.height;
+                    
+                    sb.AppendLine($"v {bottom1.x:F6} {bottom1.y:F6} {bottom1.z:F6}");
+                    sb.AppendLine($"v {bottom2.x:F6} {bottom2.y:F6} {bottom2.z:F6}");
+                    sb.AppendLine($"v {top2.x:F6} {top2.y:F6} {top2.z:F6}");
+                    sb.AppendLine($"v {top1.x:F6} {top1.y:F6} {top1.z:F6}");
+                    
+                    // Calculate normal
+                    Vector3 dir = (bottom2 - bottom1).normalized;
+                    Vector3 normal = Vector3.Cross(Vector3.up, dir).normalized;
+                    sb.AppendLine($"vn {normal.x:F6} {normal.y:F6} {normal.z:F6}");
+                    
+                    int v = vertexOffset;
+                    sb.AppendLine($"f {v}//{v} {v+1}//{v} {v+2}//{v}");
+                    sb.AppendLine($"f {v}//{v} {v+2}//{v} {v+3}//{v}");
+                    
+                    vertexOffset += 4;
+                }
+            }
+            
+            File.WriteAllText(path, sb.ToString());
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to export room OBJ: {ex.Message}");
         }
     }
     
@@ -223,3 +447,5 @@ public class MRUKRoomExporter : MonoBehaviour
         File.WriteAllText(Path.Combine(basePath, "rooms_summary.json"), json);
     }
 }
+
+

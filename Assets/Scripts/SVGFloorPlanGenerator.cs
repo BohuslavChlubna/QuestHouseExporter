@@ -10,6 +10,162 @@ using Meta.XR.MRUtilityKit;
 /// </summary>
 public static class SVGFloorPlanGenerator
 {
+    /// <summary>
+    /// Generate floor plan from offline RoomData (NO MRUK dependency!)
+    /// </summary>
+    public static void GenerateFloorPlanFromOfflineData(List<RoomData> rooms, string outputPath, int floorLevel)
+    {
+        // Calculate bounds of all rooms
+        float minX = float.MaxValue, maxX = float.MinValue;
+        float minZ = float.MaxValue, maxZ = float.MinValue;
+        
+        foreach (var room in rooms)
+        {
+            if (room.floorBoundary == null || room.floorBoundary.Count == 0) continue;
+            
+            foreach (var pt in room.floorBoundary)
+            {
+                minX = Mathf.Min(minX, pt.x);
+                maxX = Mathf.Max(maxX, pt.x);
+                minZ = Mathf.Min(minZ, pt.z);
+                maxZ = Mathf.Max(maxZ, pt.z);
+            }
+        }
+        
+        // Add padding for dimensions (20% on each side)
+        float width = maxX - minX;
+        float height = maxZ - minZ;
+        float padding = Mathf.Max(width, height) * 0.2f;
+        minX -= padding;
+        maxX += padding;
+        minZ -= padding;
+        maxZ += padding;
+        width = maxX - minX;
+        height = maxZ - minZ;
+        
+        var sb = new StringBuilder();
+        WriteSVGHeader(sb, minX, minZ, width, height, floorLevel);
+        
+        float dimOffset = width * 0.05f;
+        
+        foreach (var room in rooms)
+        {
+            if (room.floorBoundary == null || room.floorBoundary.Count == 0) continue;
+            
+            DrawRoomFromOfflineData(room, sb, dimOffset);
+        }
+        
+        sb.AppendLine("</svg>");
+        File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
+    }
+    
+    static void DrawRoomFromOfflineData(RoomData room, StringBuilder sb, float dimOffset)
+    {
+        // Draw room polygon
+        sb.Append("  <polygon class=\"room\" points=\"");
+        foreach (var pt in room.floorBoundary)
+        {
+            sb.Append($"{pt.x:F2},{pt.z:F2} ");
+        }
+        sb.AppendLine("\" />");
+        
+        // Draw dimensions for each edge
+        for (int i = 0; i < room.floorBoundary.Count; i++)
+        {
+            var v1 = room.floorBoundary[i];
+            var v2 = room.floorBoundary[(i + 1) % room.floorBoundary.Count];
+            
+            Vector2 p1 = new Vector2(v1.x, v1.z);
+            Vector2 p2 = new Vector2(v2.x, v2.z);
+            
+            float length = Vector2.Distance(p1, p2);
+            Vector2 mid = (p1 + p2) * 0.5f;
+            
+            // Calculate perpendicular offset
+            Vector2 edge = p2 - p1;
+            Vector2 perpendicular = new Vector2(-edge.y, edge.x).normalized;
+            
+            // Calculate room center
+            Vector2 roomCenter = Vector2.zero;
+            foreach (var pt in room.floorBoundary)
+            {
+                roomCenter += new Vector2(pt.x, pt.z);
+            }
+            roomCenter /= room.floorBoundary.Count;
+            
+            Vector2 edgeMidToCenter = roomCenter - mid;
+            if (Vector2.Dot(perpendicular, edgeMidToCenter) > 0)
+                perpendicular = -perpendicular;
+            
+            // Offset dimension line
+            Vector2 offset = perpendicular * dimOffset;
+            Vector2 dim1 = p1 + offset;
+            Vector2 dim2 = p2 + offset;
+            Vector2 dimMid = mid + offset;
+            
+            // Draw dimension line with arrows
+            sb.AppendLine($"  <line class=\"arrow\" x1=\"{dim1.x:F2}\" y1=\"{dim1.y:F2}\" x2=\"{dim2.x:F2}\" y2=\"{dim2.y:F2}\" />");
+            sb.AppendLine($"  <line class=\"dim-line\" x1=\"{p1.x:F2}\" y1=\"{p1.y:F2}\" x2=\"{dim1.x:F2}\" y2=\"{dim1.y:F2}\" />");
+            sb.AppendLine($"  <line class=\"dim-line\" x1=\"{p2.x:F2}\" y1=\"{p2.y:F2}\" x2=\"{dim2.x:F2}\" y2=\"{dim2.y:F2}\" />");
+            
+            // Calculate rotation angle
+            float angle = Mathf.Atan2(edge.y, edge.x) * Mathf.Rad2Deg;
+            if (angle > 90) angle -= 180;
+            if (angle < -90) angle += 180;
+            
+            sb.AppendLine($"  <text class=\"dimension\" x=\"{dimMid.x:F2}\" y=\"{dimMid.y:F2}\" text-anchor=\"middle\" transform=\"rotate({angle:F1} {dimMid.x:F2} {dimMid.y:F2})\">{length:F2}m</text>");
+        }
+        
+        // Draw anchors (windows, doors)
+        if (room.anchors != null)
+        {
+            foreach (var anchor in room.anchors)
+            {
+                string anchorType = anchor.anchorType.ToUpper();
+                bool isWindow = anchorType.Contains("WINDOW");
+                bool isDoor = anchorType.Contains("DOOR");
+                
+                if (!isWindow && !isDoor) continue;
+                
+                Vector2 pos2D = new Vector2(anchor.position.x, anchor.position.z);
+                float width = anchor.scale.x;
+                float depth = 0.1f;
+                
+                string cssClass = isWindow ? "window" : "door";
+                float halfW = width / 2f;
+                float halfD = depth / 2f;
+                
+                sb.AppendLine($"  <rect class=\"{cssClass}\" x=\"{pos2D.x - halfW:F2}\" y=\"{pos2D.y - halfD:F2}\" width=\"{width:F2}\" height=\"{depth:F2}\" />");
+                sb.AppendLine($"  <text class=\"opening-label\" x=\"{pos2D.x:F2}\" y=\"{pos2D.y + 0.3f:F2}\" text-anchor=\"middle\">{(isWindow ? "W" : "D")} {width:F2}m</text>");
+            }
+        }
+    }
+    
+    static void WriteSVGHeader(StringBuilder sb, float minX, float minY, float width, float height, int floorLevel)
+    {
+        sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sb.AppendLine($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1000\" height=\"1000\" viewBox=\"{minX:F2} {minY:F2} {width:F2} {height:F2}\">");
+        sb.AppendLine($"  <title>Floor {floorLevel} Plan</title>");
+        sb.AppendLine("  <style>");
+        sb.AppendLine("    .wall { stroke: black; stroke-width: 0.05; fill: none; }");
+        sb.AppendLine("    .room { fill: #f0f0f0; stroke: black; stroke-width: 0.05; }");
+        sb.AppendLine($"    .dimension {{ font-size: {(width * 0.03f):F2}px; fill: blue; }}");
+        sb.AppendLine("    .dim-line { stroke: blue; stroke-width: 0.02; fill: none; }");
+        sb.AppendLine("    .arrow { stroke: blue; stroke-width: 0.02; fill: none; marker-start: url(#arrowhead-start); marker-end: url(#arrowhead-end); }");
+        sb.AppendLine("    .window { fill: lightblue; stroke: blue; stroke-width: 0.03; }");
+        sb.AppendLine("    .door { fill: brown; stroke: darkbrown; stroke-width: 0.03; }");
+        sb.AppendLine("    .opening-label { font-size: 0.15px; fill: darkgreen; }");
+        sb.AppendLine("  </style>");
+        sb.AppendLine("  <defs>");
+        sb.AppendLine($"    <marker id=\"arrowhead-end\" markerWidth=\"10\" markerHeight=\"10\" refX=\"9\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\">");
+        sb.AppendLine("      <path d=\"M0,0 L0,6 L9,3 z\" fill=\"blue\" />");
+        sb.AppendLine("    </marker>");
+        sb.AppendLine($"    <marker id=\"arrowhead-start\" markerWidth=\"10\" markerHeight=\"10\" refX=\"0\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\">");
+        sb.AppendLine("      <path d=\"M9,0 L9,6 L0,3 z\" fill=\"blue\" />");
+        sb.AppendLine("    </marker>");
+        sb.AppendLine("  </defs>");
+    }
+    
     public static void GenerateFloorPlan(List<MRUKRoom> rooms, string outputPath, int floorLevel)
     {
         // First pass: calculate bounds of all rooms
