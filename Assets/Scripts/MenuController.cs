@@ -214,8 +214,8 @@ public class MenuController : MonoBehaviour
         
         menuCanvas.AddComponent<GraphicRaycaster>();
         
-        // Position canvas in front of user
-        menuCanvas.transform.localPosition = new Vector3(0, 1.5f, 2f);
+        // Position canvas in front of user (moved up one level for better visibility)
+        menuCanvas.transform.localPosition = new Vector3(0, 1.8f, 2f);
         menuCanvas.transform.localRotation = Quaternion.identity;
         
         var rectTransform = menuCanvas.GetComponent<RectTransform>();
@@ -284,6 +284,9 @@ public class MenuController : MonoBehaviour
         {
             CreateButton("ViewModeButton", "Toggle View Mode", new Vector2(0, -350), OnToggleViewMode);
         }
+        
+        // Clear & Show Logcat Button (DEBUG feature)
+        CreateButton("LogcatButton", "Clear & Show Logcat", new Vector2(0, -450), OnShowLogcatPressed);
         
         Debug.Log("[MenuController] UI created successfully");
     }
@@ -593,6 +596,40 @@ public class MenuController : MonoBehaviour
             viewModeController.ToggleMode();
             statusText.text = $"View mode: {viewModeController.currentMode}";
         }
+    }
+    
+    void OnShowLogcatPressed()
+    {
+        Debug.Log("[MenuController] Clear & Show Logcat pressed");
+        
+        // Clear existing log
+        RuntimeLogger.ClearLog();
+        RuntimeLogger.WriteLine("=== LOGCAT CLEARED ===");
+        RuntimeLogger.WriteLine($"Time: {System.DateTime.Now:HH:mm:ss}");
+        RuntimeLogger.WriteLine($"Offline rooms: {offlineRooms.Count}");
+        RuntimeLogger.WriteLine($"Test Mode: {testModeSimpleUI}");
+        
+        // Show current state
+        if (offlineRooms.Count > 0)
+        {
+            RuntimeLogger.WriteLine("\n--- Room Data ---");
+            foreach (var room in offlineRooms)
+            {
+                RuntimeLogger.WriteLine($"Room: {room.roomName} ({room.roomId})");
+                RuntimeLogger.WriteLine($"  Walls: {(room.walls != null ? room.walls.Count : 0)}");
+                RuntimeLogger.WriteLine($"  Anchors: {(room.anchors != null ? room.anchors.Count : 0)}");
+                RuntimeLogger.WriteLine($"  Ceiling: {room.ceilingHeight:F2}m{(room.hasSlopedCeiling ? " (sloped)" : "")}");
+            }
+        }
+        else
+        {
+            RuntimeLogger.WriteLine("\nNo rooms loaded.");
+        }
+        
+        RuntimeLogger.WriteLine("\n=== END LOG ===");
+        
+        statusText.text = "Logcat cleared and shown!\nCheck VR display";
+        statusText.color = Color.green;
     }
 
     void Update()

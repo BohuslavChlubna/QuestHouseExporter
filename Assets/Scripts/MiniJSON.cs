@@ -71,7 +71,9 @@ public static class MiniJSON
     }
 
     [Serializable]
+    #pragma warning disable 0649 // Field is never assigned (used only for JsonUtility deserialization)
     private class Wrapper { public string json; }
+    #pragma warning restore 0649
 
     // Very small JSON parser for our limited needs (flat object with string/number values)
     static class SimpleJsonParser
