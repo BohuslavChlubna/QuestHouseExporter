@@ -271,6 +271,29 @@ public class MRUKRoomExporter : MonoBehaviour
                 }
             }
             
+            // Export ceiling (sloped or flat)
+            if (room.hasSlopedCeiling && room.ceilingBoundary != null && room.ceilingBoundary.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("# Ceiling (Sloped)");
+                sb.AppendLine("g Ceiling_Sloped");
+                
+                foreach (var v in room.ceilingBoundary)
+                {
+                    sb.AppendLine($"v {v.x:F6} {v.y:F6} {v.z:F6}");
+                }
+                
+                sb.AppendLine("vn 0.000000 -1.000000 0.000000"); // Down-facing normal
+                
+                // Triangulate ceiling (reversed winding)
+                for (int i = 0; i < room.ceilingBoundary.Count - 2; i++)
+                {
+                    sb.AppendLine($"f {vertexOffset}//{vertexOffset} {vertexOffset + i + 2}//{vertexOffset} {vertexOffset + i + 1}//{vertexOffset}");
+                }
+                
+                vertexOffset += room.ceilingBoundary.Count;
+            }
+            
             File.WriteAllText(path, sb.ToString());
         }
         catch (Exception ex)

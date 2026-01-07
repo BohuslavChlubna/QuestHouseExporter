@@ -380,6 +380,25 @@ public class MenuController : MonoBehaviour
                     mrukRoom.CeilingAnchor.transform.position.y - 
                     mrukRoom.FloorAnchor.transform.position.y
                 );
+                
+                // NEW: Check for sloped ceiling (FW83+)
+                if (mrukRoom.CeilingAnchor.PlaneBoundary2D != null && mrukRoom.CeilingAnchor.PlaneBoundary2D.Count > 0)
+                {
+                    roomData.hasSlopedCeiling = true;
+                    roomData.ceilingBoundary = new List<Vector3>();
+                    
+                    Vector3 ceilingPos = mrukRoom.CeilingAnchor.transform.position;
+                    Quaternion ceilingRot = mrukRoom.CeilingAnchor.transform.rotation;
+                    
+                    foreach (var pt2D in mrukRoom.CeilingAnchor.PlaneBoundary2D)
+                    {
+                        // Convert to world coordinates
+                        Vector3 worldPos = ceilingPos + ceilingRot * new Vector3(pt2D.x, 0, pt2D.y);
+                        roomData.ceilingBoundary.Add(worldPos);
+                    }
+                    
+                    RuntimeLogger.WriteLine($"  Detected SLOPED ceiling in {roomData.roomName} with {roomData.ceilingBoundary.Count} vertices");
+                }
             }
             
             // Convert floor boundary

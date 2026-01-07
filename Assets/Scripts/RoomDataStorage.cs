@@ -12,9 +12,11 @@ public class RoomData
     public string roomId;
     public string roomName;
     public List<Vector3> floorBoundary = new List<Vector3>();
+    public List<Vector3> ceilingBoundary = new List<Vector3>(); // NEW: Support for sloped ceilings (FW83+)
     public List<WallData> walls = new List<WallData>();
     public List<AnchorData> anchors = new List<AnchorData>();
-    public float ceilingHeight = 2.5f;
+    public float ceilingHeight = 2.5f; // Fallback for flat ceilings
+    public bool hasSlopedCeiling = false; // NEW: Flag to indicate sloped ceiling
 }
 
 [Serializable]

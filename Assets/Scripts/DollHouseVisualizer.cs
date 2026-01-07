@@ -122,8 +122,49 @@ public class DollHouseVisualizer : MonoBehaviour
             }
         }
         
+        // Create ceiling (sloped or flat)
+        if (room.hasSlopedCeiling && room.ceilingBoundary != null && room.ceilingBoundary.Count > 0)
+        {
+            CreateSlopedCeilingVisualization(room.ceilingBoundary, go.transform, roomCenter);
+        }
+        
         visualizedRooms.Add(go);
         Debug.Log($"[DollHouseVisualizer] Created room: {room.roomName} on floor {floorLevel}");
+    }
+    
+    void CreateSlopedCeilingVisualization(List<Vector3> ceilingBoundary, Transform parent, Vector3 roomCenter)
+    {
+        var ceilingObj = new GameObject("Ceiling_Sloped");
+        ceilingObj.transform.SetParent(parent, false);
+        
+        // Convert to local coordinates
+        Vector3[] localVerts = new Vector3[ceilingBoundary.Count];
+        for (int i = 0; i < ceilingBoundary.Count; i++)
+        {
+            localVerts[i] = ceilingBoundary[i] - roomCenter;
+        }
+        
+        Mesh ceilingMesh = new Mesh();
+        ceilingMesh.vertices = localVerts;
+        
+        // Triangulate (reversed for ceiling)
+        int[] tris = new int[(ceilingBoundary.Count - 2) * 3];
+        for (int i = 0; i < ceilingBoundary.Count - 2; i++)
+        {
+            tris[i * 3 + 0] = 0;
+            tris[i * 3 + 2] = i + 1;
+            tris[i * 3 + 1] = i + 2;
+        }
+        ceilingMesh.triangles = tris;
+        ceilingMesh.RecalculateNormals();
+        
+        var mf = ceilingObj.AddComponent<MeshFilter>();
+        mf.mesh = ceilingMesh;
+        
+        var mr = ceilingObj.AddComponent<MeshRenderer>();
+        Material ceilingMat = new Material(roomMaterial);
+        ceilingMat.color = new Color(0.7f, 0.7f, 0.9f, 0.6f); // Slightly different color for ceiling
+        mr.material = ceilingMat;
     }
     
     void CreateWallVisualization(WallData wall, Transform parent, Vector3 roomCenter, int floorLevel)

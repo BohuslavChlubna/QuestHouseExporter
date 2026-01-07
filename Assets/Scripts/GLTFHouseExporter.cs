@@ -65,8 +65,43 @@ public static class GLTFHouseExporter
         }
         
         // Add ceiling
-        AddCeilingGeometryFromOfflineData(room.floorBoundary, room.ceilingHeight, 
-            ref vertices, ref triangles, ref normals, ref uvs, ref vertexOffset);
+        if (room.hasSlopedCeiling && room.ceilingBoundary != null && room.ceilingBoundary.Count > 0)
+        {
+            // Sloped ceiling - use actual ceiling boundary
+            AddSlopedCeilingGeometryFromOfflineData(room.ceilingBoundary, ref vertices, ref triangles, 
+                ref normals, ref uvs, ref vertexOffset);
+        }
+        else
+        {
+            // Flat ceiling - use floor boundary + height
+            AddCeilingGeometryFromOfflineData(room.floorBoundary, room.ceilingHeight, 
+                ref vertices, ref triangles, ref normals, ref uvs, ref vertexOffset);
+        }
+    }
+    
+    static void AddSlopedCeilingGeometryFromOfflineData(List<Vector3> ceilingBoundary,
+        ref List<Vector3> vertices, ref List<int> triangles, ref List<Vector3> normals, 
+        ref List<Vector2> uvs, ref int vertexOffset)
+    {
+        int startVertex = vertices.Count;
+        
+        // Add vertices from ceiling boundary (already at correct heights)
+        foreach (var pt in ceilingBoundary)
+        {
+            vertices.Add(pt);
+            normals.Add(Vector3.down); // Ceiling faces down
+            uvs.Add(new Vector2(pt.x, pt.z));
+        }
+        
+        // Triangulate (reversed winding for ceiling)
+        for (int i = 0; i < ceilingBoundary.Count - 2; i++)
+        {
+            triangles.Add(startVertex + 0);
+            triangles.Add(startVertex + i + 2);
+            triangles.Add(startVertex + i + 1);
+        }
+        
+        vertexOffset += ceilingBoundary.Count;
     }
     
     static void AddFloorGeometryFromOfflineData(List<Vector3> boundary, ref List<Vector3> vertices,

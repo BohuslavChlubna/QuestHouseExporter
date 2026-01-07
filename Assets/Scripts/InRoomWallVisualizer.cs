@@ -89,10 +89,49 @@ public class InRoomWallVisualizer : MonoBehaviour
         // Create ceiling if enabled
         if (showCeiling && room.floorBoundary != null && room.floorBoundary.Count > 0)
         {
-            CreateCeilingFromOfflineData(room.floorBoundary, room.ceilingHeight);
+            if (room.hasSlopedCeiling && room.ceilingBoundary != null && room.ceilingBoundary.Count > 0)
+            {
+                // Sloped ceiling
+                CreateSlopedCeilingFromOfflineData(room.ceilingBoundary);
+            }
+            else
+            {
+                // Flat ceiling
+                CreateCeilingFromOfflineData(room.floorBoundary, room.ceilingHeight);
+            }
         }
         
         return count;
+    }
+    
+    void CreateSlopedCeilingFromOfflineData(List<Vector3> ceilingBoundary)
+    {
+        GameObject ceilingObj = new GameObject("Ceiling_Sloped");
+        ceilingObj.transform.SetParent(transform, false);
+        
+        Mesh mesh = new Mesh();
+        mesh.vertices = ceilingBoundary.ToArray();
+        
+        // Triangulate (reversed winding for ceiling)
+        int[] tris = new int[(ceilingBoundary.Count - 2) * 3];
+        for (int i = 0; i < ceilingBoundary.Count - 2; i++)
+        {
+            tris[i * 3 + 0] = 0;
+            tris[i * 3 + 2] = i + 1;
+            tris[i * 3 + 1] = i + 2;
+        }
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        
+        var mf = ceilingObj.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+        
+        var mr = ceilingObj.AddComponent<MeshRenderer>();
+        Material mat = new Material(wallMaterial);
+        mat.color = new Color(0.9f, 0.9f, 1.0f, floorOpacity * 1.2f); // Slightly different color for sloped ceiling
+        mr.material = mat;
+        
+        visualizedWalls.Add(ceilingObj);
     }
     
     int CreateAnchorsFromOfflineData(RoomData room)
