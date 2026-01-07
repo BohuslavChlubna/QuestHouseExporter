@@ -45,6 +45,11 @@ public static class ADBTools
             target = BuildTarget.Android,
             options = BuildOptions.None
         };
+        
+        // Disable Burst debug info folder creation (keeps build folder clean)
+        #if UNITY_2021_2_OR_NEWER
+        opts.options |= BuildOptions.CleanBuildCache;
+        #endif
 
         UnityEngine.Debug.Log($"Starting build to: {apkPath} (ProductName: {PlayerSettings.productName})");
         var report = BuildPipeline.BuildPlayer(opts);
@@ -71,60 +76,11 @@ public static class ADBTools
         return report.summary.result;
     }
 
-    // Build and Install - Called by QuestHouseBuildMenu or directly via menu
-    [MenuItem("Tools/ADB/Build and Install on Quest", false, 1)]
-    public static void BuildAndInstall()
+    // Build and Install - Called by QuestHouseBuildMenu
+    // This is a public utility method, not a menu item
+    public static void BuildAndInstall(string apkProductName = null)
     {
-        // Check device connection first
-        if (!IsAdbAvailable())
-        {
-            UnityEngine.Debug.LogError("ADB not found in PATH. Please install platform-tools or add adb to PATH.");
-            EditorUtility.DisplayDialog("ADB Not Found", "ADB executable not found. Please:\n1. Install Android Platform Tools\n2. Add platform-tools to PATH", "OK");
-            return;
-        }
-
-        var devices = RunAdbCommand("devices");
-        bool hasDevice = devices.Contains("device") && !devices.Contains("unauthorized");
-        bool isWireless = devices.Contains(":5555");
-        
-        if (!hasDevice)
-        {
-            UnityEngine.Debug.LogWarning("No Quest device detected. Output:\n" + devices);
-            
-            // Offer wireless connection option
-            var choice = EditorUtility.DisplayDialogComplex("No Device Detected", 
-                "No Quest device found.\n\n" +
-                "USB: Connect Quest via USB cable\n" +
-                "WiFi: Connect via wireless ADB\n\n" +
-                "Make sure:\n" +
-                "• USB debugging is enabled\n" +
-                "• Authorization prompt is accepted on headset", 
-                "Connect via WiFi", 
-                "Build Anyway", 
-                "Cancel");
-            
-            if (choice == 0) // Connect via WiFi
-            {
-                string lastIP = EditorPrefs.GetString("QuestExporter_LastQuestIP", "");
-                WirelessADBWindow.ShowWindow(lastIP);
-                return;
-            }
-            else if (choice == 2) // Cancel
-            {
-                return;
-            }
-            // choice == 1 falls through to build anyway
-        }
-        else if (isWireless)
-        {
-            UnityEngine.Debug.Log("[WiFi] Using wireless ADB connection");
-        }
-        else
-        {
-            UnityEngine.Debug.Log("[USB] Using USB connection");
-        }
-
-        // Build silently (no intermediate dialog)
+        // Build first (always succeeds or fails - no device check needed)
         var buildResult = BuildApkInternal(showDialog: false);
         
         if (buildResult != BuildResult.Succeeded)
@@ -133,92 +89,102 @@ public static class ADBTools
             return;
         }
         
-        // Get APK path from PlayerSettings (may have _TestMode suffix after BuildNameProcessor)
-        string apkName = PlayerSettings.productName + ".apk";
+        // Get APK path - use provided product name or current PlayerSettings
+        string apkName = (apkProductName ?? PlayerSettings.productName) + ".apk";
         string apkPath = Path.Combine(outputDir, apkName);
+        
+        UnityEngine.Debug.Log($"Looking for APK: {apkPath}");
+        
         if (!File.Exists(apkPath))
         {
             UnityEngine.Debug.LogError("APK not found after build: " + apkPath);
             EditorUtility.DisplayDialog("Build Failed", 
-                $"APK was not created.\n\nExpected location:\n{apkPath}\n\nPossible reasons:\n• Build failed (check Console)\n• No scenes in Build Settings\n• Build was cancelled", 
+                $"APK was not created.\n\nExpected: {apkPath}", 
                 "OK");
             return;
         }
 
-        UnityEngine.Debug.Log($"APK found at: {apkPath} ({new FileInfo(apkPath).Length / 1024 / 1024} MB)");
+        long apkSizeMB = new FileInfo(apkPath).Length / (1024 * 1024);
+        UnityEngine.Debug.Log($"[OK] APK created: {apkPath} ({apkSizeMB} MB)");
 
-        // Re-check device before install
-        if (!hasDevice)
+        // Now try to install
+        if (!IsAdbAvailable())
         {
-            UnityEngine.Debug.LogWarning("Skipping install - no device connected.");
-            EditorUtility.DisplayDialog("Build Complete", $"APK built successfully:\n{apkPath}\n\nInstall manually via SideQuest or connect Quest and retry.", "OK");
+            UnityEngine.Debug.LogWarning("ADB not found - cannot install");
+            EditorUtility.DisplayDialog("Build Complete - Install Skipped", 
+                $"[OK] APK created successfully ({apkSizeMB} MB)\n" +
+                $"[SKIP] Install skipped: ADB not found\n\n" +
+                $"Location: {apkPath}\n\n" +
+                $"Install manually via SideQuest or setup ADB.", 
+                "OK");
             return;
         }
 
-        UnityEngine.Debug.Log("Installing APK to device...");
+        var devices = RunAdbCommand("devices");
+        bool hasDevice = devices.Contains("device") && !devices.Contains("unauthorized");
+        
+        if (!hasDevice)
+        {
+            UnityEngine.Debug.LogWarning("Quest not connected - skipping install");
+            EditorUtility.DisplayDialog("Build Complete - Install Skipped", 
+                $"[OK] APK created successfully ({apkSizeMB} MB)\n" +
+                $"[SKIP] Install skipped: Quest not connected\n\n" +
+                $"Location: {apkPath}\n\n" +
+                $"To install: Connect Quest and use\n" +
+                $"Tools > Quest House Design > Build ... and Install", 
+                "OK");
+            return;
+        }
+
+        // Device is connected - install
+        UnityEngine.Debug.Log("Installing APK to Quest...");
         
         // Use absolute path for ADB (resolve full Windows path)
         string absolutePath = Path.GetFullPath(apkPath);
         var installOut = RunAdbCommand($"install -r \"{absolutePath}\"");
         UnityEngine.Debug.Log("adb install output:\n" + installOut);
         
-        // Check install result (no success dialog, only log)
-        if (installOut != null && installOut.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            UnityEngine.Debug.Log("[SUCCESS] Install successful - starting app...");
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning("Install may have failed. Check output above.");
-            EditorUtility.DisplayDialog("Install Failed", $"Install output:\n{installOut}\n\nCheck Console for details.", "OK");
-        }
+        // Check install result
+        bool installSuccess = installOut != null && installOut.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0;
         
-        // If install succeeded, try to start the app
-        bool installSuccess = installOut != null && installOut.IndexOf("success", StringComparison.OrdinalIgnoreCase) >= 0;
-        bool appStarted = false;
-        
-        try
-        {
-            if (installSuccess)
-            {
-                string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
-                if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
-                
-                // Try launching with monkey command
-                UnityEngine.Debug.Log("Starting app via monkey...");
-                var startOut = RunAdbCommand($"shell monkey -p {packageId} -c android.intent.category.LAUNCHER 1");
-                UnityEngine.Debug.Log("App launch output:\n" + startOut);
-                
-                appStarted = !startOut.Contains("monkey aborted");
-            }
-            else
-            {
-                UnityEngine.Debug.LogWarning("Install output did not indicate success; skipping auto-start.");
-            }
-        }
-        catch (Exception ex)
-        {
-            UnityEngine.Debug.LogError("Failed to start app after install: " + ex.Message);
-        }
-        
-        // Final summary dialog
         if (installSuccess)
         {
-            string message;
+            UnityEngine.Debug.Log("[OK] Install successful");
+            
+            // Try to launch app
+            string packageId = PlayerSettings.GetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android);
+            if (string.IsNullOrEmpty(packageId)) packageId = "com.veksco.questhousedesign";
+            
+            UnityEngine.Debug.Log("Starting app...");
+            var startOut = RunAdbCommand($"shell monkey -p {packageId} -c android.intent.category.LAUNCHER 1");
+            bool appStarted = !startOut.Contains("monkey aborted");
+            
+            // Show success dialog
+            string message = $"[OK] APK created ({apkSizeMB} MB)\n[OK] Installed on Quest\n";
             if (appStarted)
             {
-                message = "[OK] Build complete\n[OK] Installed on Quest\n[OK] App started\n\nCheck your Quest headset!";
+                message += "[OK] App started\n\nCheck your Quest headset!";
             }
             else
             {
-                message = "[OK] Build complete\n[OK] Installed on Quest\n[WARN] App auto-start failed\n\nLaunch manually from Unknown Sources.";
+                message += "[WARN] App auto-start failed\n\nLaunch manually from Unknown Sources.";
             }
             
             EditorUtility.DisplayDialog("Success", message, "OK");
         }
+        else
+        {
+            UnityEngine.Debug.LogWarning("Install failed");
+            EditorUtility.DisplayDialog("Build Complete - Install Failed", 
+                $"[OK] APK created ({apkSizeMB} MB)\n" +
+                $"[FAIL] Install failed\n\n" +
+                $"Location: {apkPath}\n\n" +
+                $"Check Console for ADB error details.", 
+                "OK");
+        }
     }
 
-    [MenuItem("Tools/ADB/Enable Wireless ADB")]
+    [MenuItem("Tools/ADB/Enable Wireless ADB", false, 1)]
     public static void EnableWirelessADB()
     {
         if (!IsAdbAvailable())
@@ -284,7 +250,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/ADB/Connect to Quest")]
+    [MenuItem("Tools/ADB/Connect to Quest", false, 2)]
     public static void ConnectWirelessADB()
     {
         if (!IsAdbAvailable())
@@ -314,7 +280,7 @@ public static class ADBTools
         WirelessADBWindow.ShowWindow(lastIP);
     }
 
-    [MenuItem("Tools/ADB/Disconnect Wireless")]
+    [MenuItem("Tools/ADB/Disconnect Wireless", false, 3)]
     public static void DisconnectWirelessADB()
     {
         if (!IsAdbAvailable())
@@ -406,7 +372,8 @@ public static class ADBTools
         return null;
     }
 
-    [MenuItem("Tools/ADB/Uninstall App from Quest", false, 2)]
+    // Uninstall App - Called by QuestHouseBuildMenu
+    // This is a public utility method, not a menu item
     public static void UninstallApp()
     {
         if (!IsAdbAvailable())
@@ -485,7 +452,8 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/ADB/Pull Exports from Quest", false, 3)]
+    // Pull Exports - Called by QuestHouseBuildMenu
+    // This is project-specific (looks in QuestHouseDesign folder)
     public static void PullExports()
     {
         if (!IsAdbAvailable())
@@ -531,7 +499,7 @@ public static class ADBTools
         }
     }
 
-    [MenuItem("Tools/ADB/Logcat/Show Logcat (Unity)")]
+    [MenuItem("Tools/ADB/Logcat/Show Logcat (Unity)", false, 100)]
     public static void ShowLogcat()
     {
         if (!IsAdbAvailable())
@@ -566,7 +534,7 @@ public static class ADBTools
         Process.Start(psi);
     }
 
-    [MenuItem("Tools/ADB/Logcat/Clear Logcat")]
+    [MenuItem("Tools/ADB/Logcat/Clear Logcat", false, 101)]
     public static void ClearLogcat()
     {
         if (!IsAdbAvailable())
@@ -590,7 +558,7 @@ public static class ADBTools
         EditorUtility.DisplayDialog("Logcat Cleared", "Logcat buffer has been cleared.\n\nYou can now start fresh logging.", "OK");
     }
 
-    [MenuItem("Tools/ADB/Logcat/Save Logcat")]
+    [MenuItem("Tools/ADB/Logcat/Save Logcat", false, 102)]
     public static void SaveLogcat()
     {
         if (!IsAdbAvailable())

@@ -3,200 +3,70 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 
 /// <summary>
-/// Quest House Design - Build Menu
-/// Provides quick access to build, test mode toggle, and build utilities
+/// Quest House Design - Simplified Build Menu
+/// Build buttons for Production and Test APK (with optional install)
 /// </summary>
-public class QuestHouseBuildMenu : EditorWindow
+public class QuestHouseBuildMenu
 {
     private static AutoBootstrapper FindBootstrapper()
     {
         var bootstrapper = Object.FindFirstObjectByType<AutoBootstrapper>();
-        
         if (bootstrapper == null)
         {
             Debug.LogWarning("[QuestHouseBuildMenu] AutoBootstrapper not found in current scene!");
         }
-        
         return bootstrapper;
     }
 
     // ============================================================
-    // BUILD MENU - Main build commands
+    // PRODUCTION BUILD
     // ============================================================
-    
+
     [MenuItem("Tools/Quest House Design/Build Production APK", false, 1)]
     public static void BuildProductionAPK()
     {
-        var bootstrapper = FindBootstrapper();
-        
-        if (bootstrapper == null)
-        {
-            EditorUtility.DisplayDialog(
-                "AutoBootstrapper Not Found",
-                "Cannot find AutoBootstrapper in scene.\n\nMake sure QuestHouseDesign scene is loaded.",
-                "OK"
-            );
-            return;
-        }
-
-        // Ensure Test Mode is OFF
-        if (bootstrapper.testModeSimpleUI)
-        {
-            bool confirm = EditorUtility.DisplayDialog(
-                "Test Mode is ON",
-                "Test Mode is currently enabled.\n\nProduction build requires Test Mode to be OFF.\n\nDisable Test Mode and continue?",
-                "Yes, Disable and Build",
-                "Cancel"
-            );
-            
-            if (!confirm) return;
-            
-            // Disable test mode
-            Undo.RecordObject(bootstrapper, "Disable Test Mode");
-            bootstrapper.testModeSimpleUI = false;
-            EditorUtility.SetDirty(bootstrapper);
-            EditorSceneManager.MarkSceneDirty(bootstrapper.gameObject.scene);
-            EditorSceneManager.SaveOpenScenes();
-            
-            Debug.Log("[QuestHouseBuildMenu] Test Mode disabled for Production build");
-        }
-
-        // Call ADBTools build
-        ADBTools.BuildApk();
+        SetTestModeAndBuild(false, false);
     }
     
-    [MenuItem("Tools/Quest House Design/Build Test APK (UI Only)", false, 2)]
+    [MenuItem("Tools/Quest House Design/Build Production APK and Install", false, 2)]
+    public static void BuildProductionAndInstall()
+    {
+        SetTestModeAndBuild(false, true);
+    }
+
+    // ============================================================
+    // TEST BUILD (UI ONLY)
+    // ============================================================
+    
+    [MenuItem("Tools/Quest House Design/Build Test APK (UI Only)", false, 10)]
     public static void BuildTestAPK()
     {
-        var bootstrapper = FindBootstrapper();
-        
-        if (bootstrapper == null)
-        {
-            EditorUtility.DisplayDialog(
-                "AutoBootstrapper Not Found",
-                "Cannot find AutoBootstrapper in scene.\n\nMake sure QuestHouseDesign scene is loaded.",
-                "OK"
-            );
-            return;
-        }
-
-        // Ensure Test Mode is ON
-        if (!bootstrapper.testModeSimpleUI)
-        {
-            bool confirm = EditorUtility.DisplayDialog(
-                "Test Mode is OFF",
-                "Test Mode is currently disabled.\n\nTest build requires Test Mode to be ON (UI only, no visualizations).\n\nEnable Test Mode and continue?",
-                "Yes, Enable and Build",
-                "Cancel"
-            );
-            
-            if (!confirm) return;
-            
-            // Enable test mode
-            Undo.RecordObject(bootstrapper, "Enable Test Mode");
-            bootstrapper.testModeSimpleUI = true;
-            EditorUtility.SetDirty(bootstrapper);
-            EditorSceneManager.MarkSceneDirty(bootstrapper.gameObject.scene);
-            EditorSceneManager.SaveOpenScenes();
-            
-            Debug.Log("[QuestHouseBuildMenu] Test Mode enabled for Test build");
-        }
-
-        // Call ADBTools build
-        ADBTools.BuildApk();
+        SetTestModeAndBuild(true, false);
     }
-
-    [MenuItem("Tools/Quest House Design/Build and Install on Quest", false, 3)]
-    public static void BuildAndInstall()
+    
+    [MenuItem("Tools/Quest House Design/Build Test APK and Install", false, 11)]
+    public static void BuildTestAndInstall()
     {
-        // Just call ADBTools - it respects current Test Mode state
-        ADBTools.BuildAndInstall();
+        SetTestModeAndBuild(true, true);
     }
 
     // ============================================================
-    // SEPARATOR
-    // ============================================================
-    [MenuItem("Tools/Quest House Design/ ", false, 10)]
-    static void Separator1() { }
-
-    // ============================================================
-    // TEST MODE TOGGLE
+    // UTILITIES
     // ============================================================
     
-    [MenuItem("Tools/Quest House Design/Toggle Test Mode", false, 11)]
-    public static void ToggleTestMode()
+    [MenuItem("Tools/Quest House Design/Uninstall from Quest", false, 50)]
+    public static void UninstallFromQuest()
     {
-        var bootstrapper = FindBootstrapper();
-        
-        if (bootstrapper == null)
-        {
-            EditorUtility.DisplayDialog(
-                "AutoBootstrapper Not Found",
-                "Cannot find AutoBootstrapper component in the scene.\n\nPlease make sure the scene is loaded.",
-                "OK"
-            );
-            return;
-        }
-
-        bool newState = !bootstrapper.testModeSimpleUI;
-        
-        Undo.RecordObject(bootstrapper, "Toggle Test Mode");
-        bootstrapper.testModeSimpleUI = newState;
-        EditorUtility.SetDirty(bootstrapper);
-        EditorSceneManager.MarkSceneDirty(bootstrapper.gameObject.scene);
-        
-        string baseName = PlayerSettings.productName.Replace("_TestMode", "");
-        string apkName = newState ? $"{baseName}_TestMode.apk" : $"{baseName}.apk";
-        
-        string message = newState 
-            ? $"? TEST MODE ENABLED\n\nNext build will be:\n{apkName}\n\nFeatures:\n• UI only\n• No visualizations\n• Faster iteration"
-            : $"? PRODUCTION MODE\n\nNext build will be:\n{apkName}\n\nFeatures:\n• Full functionality\n• DollHouse + InRoom views\n• All visualizations";
-        
-        EditorUtility.DisplayDialog("Test Mode Toggle", message, "OK");
-        
-        Debug.Log($"[QuestHouseBuildMenu] Test Mode {(newState ? "ENABLED" : "DISABLED")}");
+        ADBTools.UninstallApp();
     }
-
-    [MenuItem("Tools/Quest House Design/Current Build Mode Status", false, 12)]
-    public static void ShowTestModeStatus()
-    {
-        var bootstrapper = FindBootstrapper();
-        
-        if (bootstrapper == null)
-        {
-            EditorUtility.DisplayDialog(
-                "AutoBootstrapper Not Found",
-                "Cannot find AutoBootstrapper component in the scene.",
-                "OK"
-            );
-            return;
-        }
-
-        bool isTestMode = bootstrapper.testModeSimpleUI;
-        string baseName = PlayerSettings.productName.Replace("_TestMode", "");
-        string apkName = isTestMode ? $"{baseName}_TestMode.apk" : $"{baseName}.apk";
-        
-        string mode = isTestMode ? "? TEST MODE" : "? PRODUCTION MODE";
-        string features = isTestMode 
-            ? "• UI only\n• No visualizations\n• Faster build & iteration\n• Smaller APK size"
-            : "• Full functionality\n• DollHouse visualization\n• InRoom wall view\n• All features enabled";
-        
-        string message = $"{mode}\n\nNext APK Name:\n{apkName}\n\nFeatures:\n{features}";
-        
-        EditorUtility.DisplayDialog("Current Build Mode", message, "OK");
-    }
-
-    // ============================================================
-    // SEPARATOR
-    // ============================================================
-    [MenuItem("Tools/Quest House Design/  ", false, 20)]
-    static void Separator2() { }
-
-    // ============================================================
-    // BUILD UTILITIES
-    // ============================================================
     
-    [MenuItem("Tools/Quest House Design/Open Build Folder", false, 21)]
+    [MenuItem("Tools/Quest House Design/Pull Exports from Quest", false, 51)]
+    public static void PullExportsFromQuest()
+    {
+        ADBTools.PullExports();
+    }
+
+    [MenuItem("Tools/Quest House Design/Open Build Folder", false, 100)]
     public static void OpenBuildFolder()
     {
         string buildPath = System.IO.Path.Combine(UnityEngine.Application.dataPath, "..", "Builds", "Android");
@@ -223,10 +93,9 @@ public class QuestHouseBuildMenu : EditorWindow
         }
         
         EditorUtility.RevealInFinder(buildPath);
-        Debug.Log($"[QuestHouseBuildMenu] Opened build folder: {buildPath}");
     }
     
-    [MenuItem("Tools/Quest House Design/Show Build Files Info", false, 22)]
+    [MenuItem("Tools/Quest House Design/Show Build Files", false, 101)]
     public static void ShowBuildFilesInfo()
     {
         string buildPath = System.IO.Path.Combine(UnityEngine.Application.dataPath, "..", "Builds", "Android");
@@ -265,8 +134,7 @@ public class QuestHouseBuildMenu : EditorWindow
             long sizeInMB = fileInfo.Length / (1024 * 1024);
             string lastModified = fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss");
             
-            // Mark test builds
-            string prefix = fileName.Contains("_TestMode") ? "?? TEST: " : "?? PROD: ";
+            string prefix = fileName.Contains("_TestMode") ? "TEST: " : "PROD: ";
             
             sb.AppendLine($"{prefix}{fileName}");
             sb.AppendLine($"   Size: {sizeInMB} MB ({fileInfo.Length:N0} bytes)");
@@ -282,39 +150,80 @@ public class QuestHouseBuildMenu : EditorWindow
             "Copy Path"
         );
         
-        if (result == 0) // Open Folder
+        if (result == 0)
         {
             EditorUtility.RevealInFinder(buildPath);
         }
-        else if (result == 2) // Copy Path
+        else if (result == 2)
         {
             EditorGUIUtility.systemCopyBuffer = buildPath;
             Debug.Log($"[QuestHouseBuildMenu] Copied to clipboard: {buildPath}");
         }
     }
 
-    [MenuItem("Tools/Quest House Design/Build Information", false, 23)]
-    public static void ShowBuildInfo()
+    // ============================================================
+    // INTERNAL HELPER
+    // ============================================================
+
+    private static void SetTestModeAndBuild(bool enableTestMode, bool alsoInstall)
     {
         var bootstrapper = FindBootstrapper();
         
-        bool isTestMode = bootstrapper != null && bootstrapper.testModeSimpleUI;
-        string baseName = PlayerSettings.productName.Replace("_TestMode", "");
-        string nextAPKName = isTestMode ? $"{baseName}_TestMode.apk" : $"{baseName}.apk";
-        string mode = isTestMode ? "TEST MODE (UI only)" : "PRODUCTION MODE (Full app)";
+        if (bootstrapper == null)
+        {
+            EditorUtility.DisplayDialog(
+                "AutoBootstrapper Not Found",
+                "Cannot find AutoBootstrapper in scene.\n\nMake sure QuestHouseDesign scene is loaded.",
+                "OK"
+            );
+            return;
+        }
+
+        string modeName = enableTestMode ? "Test Mode (UI Only)" : "Production Mode";
         
-        string info = $"Current Build Configuration:\n\n" +
-                     $"Mode: {mode}\n" +
-                     $"Next APK: {nextAPKName}\n\n" +
-                     $"Project Settings:\n" +
-                     $"Product Name: {PlayerSettings.productName}\n" +
-                     $"Bundle ID: {PlayerSettings.applicationIdentifier}\n" +
-                     $"Version: {PlayerSettings.bundleVersion}\n" +
-                     $"Build Number: {PlayerSettings.Android.bundleVersionCode}";
+        // Set test mode (no confirmation needed - user explicitly chose via menu button)
+        if (bootstrapper.testModeSimpleUI != enableTestMode)
+        {
+            Undo.RecordObject(bootstrapper, $"Set {modeName}");
+            bootstrapper.testModeSimpleUI = enableTestMode;
+            EditorUtility.SetDirty(bootstrapper);
+            EditorSceneManager.MarkSceneDirty(bootstrapper.gameObject.scene);
+            EditorSceneManager.SaveOpenScenes();
+            
+            Debug.Log($"[QuestHouseBuildMenu] Switched to {modeName}");
+        }
+
+        // CRITICAL: Manually set ProductName BEFORE build (BuildNameProcessor will also do this, but we need it NOW)
+        string baseProductName = PlayerSettings.productName.Replace("_TestMode", "");
+        string buildProductName; // This is what the APK will be named
         
-        EditorUtility.DisplayDialog("Build Information", info, "OK");
+        if (enableTestMode)
+        {
+            buildProductName = baseProductName + "_TestMode";
+            PlayerSettings.productName = buildProductName;
+            Debug.Log($"[QuestHouseBuildMenu] PRE-BUILD: Set ProductName to '{PlayerSettings.productName}' for Test Mode");
+        }
+        else
+        {
+            buildProductName = baseProductName;
+            PlayerSettings.productName = buildProductName;
+            Debug.Log($"[QuestHouseBuildMenu] PRE-BUILD: Set ProductName to '{PlayerSettings.productName}' for Production Mode");
+        }
+
+        // Build (and optionally install)
+        // Pass the build product name so ADBTools knows what APK to look for
+        if (alsoInstall)
+        {
+            ADBTools.BuildAndInstall(buildProductName);
+        }
+        else
+        {
+            ADBTools.BuildApk();
+        }
+        
+        // CRITICAL: Restore ProductName after build
+        PlayerSettings.productName = baseProductName;
+        Debug.Log($"[QuestHouseBuildMenu] POST-BUILD: Restored ProductName to '{PlayerSettings.productName}'");
     }
 }
-
-
 

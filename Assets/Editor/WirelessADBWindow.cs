@@ -39,25 +39,25 @@ public class WirelessADBWindow : EditorWindow
                         if (parts.Length > 0)
                         {
                             string connectedIP = parts[0].Replace(":5555", "");
-                            connectionStatus = $"? Connected: {connectedIP}";
+                            connectionStatus = $"[OK] Connected: {connectedIP}";
                             return;
                         }
                     }
                 }
-                connectionStatus = "? Wireless connected";
+                connectionStatus = "[OK] Wireless connected";
             }
             else if (devices.Contains("device") && !devices.Contains("unauthorized"))
             {
-                connectionStatus = "?? USB connected (wireless not active)";
+                connectionStatus = "[USB] USB connected (wireless not active)";
             }
             else
             {
-                connectionStatus = "? Not connected";
+                connectionStatus = "[WARN] Not connected";
             }
         }
         else
         {
-            connectionStatus = "? ADB not available";
+            connectionStatus = "[FAIL] ADB not available";
         }
     }
     
@@ -70,9 +70,9 @@ public class WirelessADBWindow : EditorWindow
         EditorGUILayout.LabelField("Status:", EditorStyles.boldLabel, GUILayout.Width(60));
         
         GUIStyle statusStyle = new GUIStyle(EditorStyles.label);
-        if (connectionStatus.Contains("?"))
+        if (connectionStatus.Contains("[OK]"))
             statusStyle.normal.textColor = Color.green;
-        else if (connectionStatus.Contains("??"))
+        else if (connectionStatus.Contains("[USB]"))
             statusStyle.normal.textColor = Color.cyan;
         else
             statusStyle.normal.textColor = Color.red;

@@ -74,9 +74,9 @@ public class AutoBootstrapperEditor : Editor
         EditorGUILayout.Space(10);
 
         // Build info section
-        if (GUILayout.Button("Show Build Information"))
+        if (GUILayout.Button("Open Build Folder"))
         {
-            QuestHouseBuildMenu.ShowBuildInfo();
+            QuestHouseBuildMenu.OpenBuildFolder();
         }
 
         EditorGUILayout.Space(5);

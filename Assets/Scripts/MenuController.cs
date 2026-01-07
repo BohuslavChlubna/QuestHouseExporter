@@ -250,7 +250,7 @@ public class MenuController : MonoBehaviour
         exportButton.interactable = true;
         
         // Reload Rooms Button
-        reloadButton = CreateButton("ReloadButton", "?? Reload Rooms", new Vector2(0, -250), OnReloadRoomsPressed);
+        reloadButton = CreateButton("ReloadButton", "Reload Rooms", new Vector2(0, -250), OnReloadRoomsPressed);
         
         // View Mode Toggle Button
         if (viewModeController != null)

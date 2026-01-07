@@ -51,13 +51,13 @@ public class StartupDiagnostics : MonoBehaviour
             var shader = Shader.Find(shaderName);
             if (shader != null)
             {
-                Debug.Log($"[Diagnostics] ? Found shader: {shaderName}");
+                Debug.Log($"[Diagnostics] [OK] Found shader: {shaderName}");
                 RuntimeLogger.WriteLine($"Shader available: {shaderName}");
                 foundShader = true;
             }
             else
             {
-                Debug.LogWarning($"[Diagnostics] ? Missing shader: {shaderName}");
+                Debug.LogWarning($"[Diagnostics] [WARN] Missing shader: {shaderName}");
             }
         }
         

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -183,52 +183,24 @@ public class BuildNamePostProcessor : IPostprocessBuildWithReport
         {
             string restoredName = currentName.Replace("_TestMode", "");
             PlayerSettings.productName = restoredName;
-            Debug.Log($"[BuildNamePostProcessor] ? Restored product name: '{currentName}' ? '{restoredName}'");
+            Debug.Log($"[BuildNamePostProcessor] ✓ Restored product name: '{currentName}' → '{restoredName}'");
         }
         else
         {
             Debug.Log($"[BuildNamePostProcessor] Product name unchanged: '{currentName}'");
         }
         
-        // Log final APK path and show notification
+        // Log final APK info (no dialog - ADBTools already shows one)
         if (report.summary.platform == BuildTarget.Android && !string.IsNullOrEmpty(report.summary.outputPath))
         {
             string outputPath = report.summary.outputPath;
             var fileInfo = new System.IO.FileInfo(outputPath);
             long sizeInMB = fileInfo.Length / (1024 * 1024);
             
-            Debug.Log($"[BuildNamePostProcessor] ? APK output: {outputPath}");
-            Debug.Log($"[BuildNamePostProcessor] ? File size: {sizeInMB} MB");
-            
-            // Show detailed build notification
-            string fileName = System.IO.Path.GetFileName(outputPath);
-            string folderPath = System.IO.Path.GetDirectoryName(outputPath);
-            
-            string message = $"? Build Completed Successfully!\n\n" +
-                           $"File: {fileName}\n" +
-                           $"Size: {sizeInMB} MB\n" +
-                           $"Location: {folderPath}\n\n" +
-                           $"Build result: {report.summary.result}\n" +
-                           $"Build time: {report.summary.totalTime:hh\\:mm\\:ss}";
-            
-            int choice = EditorUtility.DisplayDialogComplex(
-                "APK Build Complete",
-                message,
-                "Open Folder",
-                "OK",
-                "Copy Path"
-            );
-            
-            if (choice == 0) // Open Folder
-            {
-                EditorUtility.RevealInFinder(outputPath);
-                Debug.Log($"[BuildNamePostProcessor] Opened build folder");
-            }
-            else if (choice == 2) // Copy Path
-            {
-                EditorGUIUtility.systemCopyBuffer = outputPath;
-                Debug.Log($"[BuildNamePostProcessor] Copied path to clipboard: {outputPath}");
-            }
+            Debug.Log($"[BuildNamePostProcessor] ✓ APK output: {outputPath}");
+            Debug.Log($"[BuildNamePostProcessor] ✓ File size: {sizeInMB} MB");
+            Debug.Log($"[BuildNamePostProcessor] ✓ Build result: {report.summary.result}");
+            Debug.Log($"[BuildNamePostProcessor] ✓ Build time: {report.summary.totalTime:hh\\:mm\\:ss}");
         }
     }
 }
