@@ -103,4 +103,50 @@ public class TestModeToggle : EditorWindow
         
         EditorUtility.DisplayDialog("Build Information", info, "OK");
     }
+    
+    [MenuItem("Tools/Quest House Design/Test Build Name Processor")]
+    public static void TestBuildNameProcessor()
+    {
+        var bootstrapper = FindBootstrapper();
+        
+        if (bootstrapper == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Test Failed",
+                "AutoBootstrapper not found in scene!",
+                "OK"
+            );
+            return;
+        }
+        
+        bool isTestMode = bootstrapper.testModeSimpleUI;
+        string currentProductName = PlayerSettings.productName;
+        
+        // Remove suffix if exists
+        string baseName = currentProductName.EndsWith("_TestMode") 
+            ? currentProductName.Replace("_TestMode", "") 
+            : currentProductName;
+        
+        string expectedAPKName = isTestMode 
+            ? $"{baseName}_TestMode.apk" 
+            : $"{baseName}.apk";
+        
+        string message = $"Build Name Processor Test:\n\n" +
+                        $"Current Product Name: {currentProductName}\n" +
+                        $"Test Mode Enabled: {isTestMode}\n" +
+                        $"Expected APK Name: {expectedAPKName}\n\n" +
+                        $"The BuildNameProcessor will:\n" +
+                        $"1. Detect testModeSimpleUI = {isTestMode}\n" +
+                        $"2. {(isTestMode ? "Add '_TestMode' suffix" : "Use original name")}\n" +
+                        $"3. Set ProductName during build\n" +
+                        $"4. After build, restore to: {baseName}";
+        
+        EditorUtility.DisplayDialog("Build Name Processor Test", message, "OK");
+        
+        Debug.Log($"[TestModeToggle] Build Name Processor Test:");
+        Debug.Log($"  Current: {currentProductName}");
+        Debug.Log($"  Test Mode: {isTestMode}");
+        Debug.Log($"  Expected APK: {expectedAPKName}");
+    }
 }
+
