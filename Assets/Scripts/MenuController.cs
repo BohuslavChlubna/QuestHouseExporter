@@ -20,6 +20,8 @@ public class MenuController : MonoBehaviour
     private Button exportButton;
     private Button reloadButton;
     
+    private Camera mainCamera; // Cache for VR camera
+    
     // Offline cached room data from RoomDataStorage
     private List<RoomData> offlineRooms = new List<RoomData>();
     
@@ -214,13 +216,14 @@ public class MenuController : MonoBehaviour
         
         menuCanvas.AddComponent<GraphicRaycaster>();
         
-        // Position canvas in front of user (moved up one level for better visibility)
-        menuCanvas.transform.localPosition = new Vector3(0, 1.8f, 2f);
+        // Position canvas in front of user - QUEST 3 optimized positioning
+        // Default position (will be repositioned when camera is found)
+        menuCanvas.transform.localPosition = new Vector3(0, 1.5f, 3f);
         menuCanvas.transform.localRotation = Quaternion.identity;
         
         var rectTransform = menuCanvas.GetComponent<RectTransform>();
-        rectTransform.sizeDelta = new Vector2(800, 700);
-        rectTransform.localScale = Vector3.one * 0.001f;
+        rectTransform.sizeDelta = new Vector2(1200, 1000); // Larger for better readability
+        rectTransform.localScale = Vector3.one * 0.002f; // Larger scale for Quest 3
         
         // Background Panel
         var bgPanel = new GameObject("Background");
@@ -285,10 +288,79 @@ public class MenuController : MonoBehaviour
             CreateButton("ViewModeButton", "Toggle View Mode", new Vector2(0, -350), OnToggleViewMode);
         }
         
-        // Clear & Show Logcat Button (DEBUG feature)
-        CreateButton("LogcatButton", "Clear & Show Logcat", new Vector2(0, -450), OnShowLogcatPressed);
-        
         Debug.Log("[MenuController] UI created successfully");
+        
+        // CRITICAL: Find camera and position menu immediately (don't wait for Update)
+        StartCoroutine(PositionMenuAfterCameraReady());
+    }
+    
+    System.Collections.IEnumerator PositionMenuAfterCameraReady()
+    {
+        // Wait a few frames for XR camera to initialize
+        for (int i = 0; i < 10 && mainCamera == null; i++)
+        {
+            yield return null;
+            FindCamera();
+        }
+        
+        if (mainCamera == null)
+        {
+            Debug.LogError("[MenuController] CRITICAL: Camera not found after waiting! Menu will not be visible.");
+            RuntimeLogger.WriteLine("ERROR: Camera not found - menu will not be visible!");
+        }
+        else
+        {
+            // Position menu in front of camera - Quest 3 optimized distance
+            Vector3 menuPosition = mainCamera.transform.position + mainCamera.transform.forward * 3f;
+            menuCanvas.transform.position = menuPosition;
+            
+            // Make menu face camera
+            Vector3 directionToCamera = mainCamera.transform.position - menuPosition;
+            directionToCamera.y = 0; // Keep menu upright
+            if (directionToCamera != Vector3.zero)
+            {
+                menuCanvas.transform.rotation = Quaternion.LookRotation(-directionToCamera);
+            }
+            
+            Debug.Log($"[MenuController] Menu positioned {3f}m in front of camera: {mainCamera.name}");
+            RuntimeLogger.WriteLine($"Menu positioned in front of camera: {mainCamera.name} at distance 3m");
+        }
+    }
+    
+    void FindCamera()
+    {
+        // Try Camera.main first (should be tagged MainCamera in XR Rig)
+        mainCamera = Camera.main;
+        
+        // Fallback 1: Search for camera in XR Rig hierarchy
+        if (mainCamera == null)
+        {
+            // Look for "CenterEyeAnchor" or "Main Camera" in XR Rig
+            var centerEye = GameObject.Find("CenterEyeAnchor");
+            if (centerEye != null)
+            {
+                mainCamera = centerEye.GetComponent<Camera>();
+                if (mainCamera != null)
+                {
+                    Debug.Log($"[MenuController] Found XR camera in CenterEyeAnchor");
+                }
+            }
+        }
+        
+        // Fallback 2: Find first enabled camera
+        if (mainCamera == null)
+        {
+            var cameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            foreach (var cam in cameras)
+            {
+                if (cam.enabled)
+                {
+                    mainCamera = cam;
+                    Debug.Log($"[MenuController] Found camera: {cam.name} in {GetGameObjectPath(cam.gameObject)}");
+                    break;
+                }
+            }
+        }
     }
 
     Button CreateButton(string name, string text, Vector2 position, UnityEngine.Events.UnityAction onClick)
@@ -597,49 +669,26 @@ public class MenuController : MonoBehaviour
             statusText.text = $"View mode: {viewModeController.currentMode}";
         }
     }
-    
-    void OnShowLogcatPressed()
-    {
-        Debug.Log("[MenuController] Clear & Show Logcat pressed");
-        
-        // Clear existing log
-        RuntimeLogger.ClearLog();
-        RuntimeLogger.WriteLine("=== LOGCAT CLEARED ===");
-        RuntimeLogger.WriteLine($"Time: {System.DateTime.Now:HH:mm:ss}");
-        RuntimeLogger.WriteLine($"Offline rooms: {offlineRooms.Count}");
-        RuntimeLogger.WriteLine($"Test Mode: {testModeSimpleUI}");
-        
-        // Show current state
-        if (offlineRooms.Count > 0)
-        {
-            RuntimeLogger.WriteLine("\n--- Room Data ---");
-            foreach (var room in offlineRooms)
-            {
-                RuntimeLogger.WriteLine($"Room: {room.roomName} ({room.roomId})");
-                RuntimeLogger.WriteLine($"  Walls: {(room.walls != null ? room.walls.Count : 0)}");
-                RuntimeLogger.WriteLine($"  Anchors: {(room.anchors != null ? room.anchors.Count : 0)}");
-                RuntimeLogger.WriteLine($"  Ceiling: {room.ceilingHeight:F2}m{(room.hasSlopedCeiling ? " (sloped)" : "")}");
-            }
-        }
-        else
-        {
-            RuntimeLogger.WriteLine("\nNo rooms loaded.");
-        }
-        
-        RuntimeLogger.WriteLine("\n=== END LOG ===");
-        
-        statusText.text = "Logcat cleared and shown!\nCheck VR display";
-        statusText.color = Color.green;
-    }
 
     void Update()
     {
-        // Make canvas always face the camera
-        if (Camera.main != null && menuCanvas != null)
+        // Make canvas always face the camera (camera should be found in PositionMenuAfterCameraReady)
+        if (menuCanvas != null && mainCamera != null)
         {
-            menuCanvas.transform.LookAt(Camera.main.transform);
+            menuCanvas.transform.LookAt(mainCamera.transform);
             menuCanvas.transform.Rotate(0, 180, 0); // Flip to face user
         }
+    }
+    
+    string GetGameObjectPath(GameObject obj)
+    {
+        string path = obj.name;
+        while (obj.transform.parent != null)
+        {
+            obj = obj.transform.parent.gameObject;
+            path = obj.name + "/" + path;
+        }
+        return path;
     }
 }
 

@@ -25,13 +25,29 @@ public class QuestHouseBuildMenu
     [MenuItem("Tools/Quest House Design/Build Production APK", false, 1)]
     public static void BuildProductionAPK()
     {
-        SetTestModeAndBuild(false, false);
+        SetTestModeAndBuild(false, false, false);
     }
     
     [MenuItem("Tools/Quest House Design/Build Production APK and Install", false, 2)]
     public static void BuildProductionAndInstall()
     {
-        SetTestModeAndBuild(false, true);
+        SetTestModeAndBuild(false, true, false);
+    }
+
+    // ============================================================
+    // DEVELOPMENT BUILD (for debugging)
+    // ============================================================
+    
+    [MenuItem("Tools/Quest House Design/Build Development APK (with Profiler)", false, 5)]
+    public static void BuildDevelopmentAPK()
+    {
+        SetTestModeAndBuild(false, false, true);
+    }
+    
+    [MenuItem("Tools/Quest House Design/Build Development APK and Install", false, 6)]
+    public static void BuildDevelopmentAndInstall()
+    {
+        SetTestModeAndBuild(false, true, true);
     }
 
     // ============================================================
@@ -41,13 +57,13 @@ public class QuestHouseBuildMenu
     [MenuItem("Tools/Quest House Design/Build Test APK (UI Only)", false, 10)]
     public static void BuildTestAPK()
     {
-        SetTestModeAndBuild(true, false);
+        SetTestModeAndBuild(true, false, false);
     }
     
     [MenuItem("Tools/Quest House Design/Build Test APK and Install", false, 11)]
     public static void BuildTestAndInstall()
     {
-        SetTestModeAndBuild(true, true);
+        SetTestModeAndBuild(true, true, false);
     }
 
     // ============================================================
@@ -165,7 +181,7 @@ public class QuestHouseBuildMenu
     // INTERNAL HELPER
     // ============================================================
 
-    private static void SetTestModeAndBuild(bool enableTestMode, bool alsoInstall)
+    private static void SetTestModeAndBuild(bool enableTestMode, bool alsoInstall, bool developmentBuild = false)
     {
         var bootstrapper = FindBootstrapper();
         
@@ -180,6 +196,7 @@ public class QuestHouseBuildMenu
         }
 
         string modeName = enableTestMode ? "Test Mode (UI Only)" : "Production Mode";
+        if (developmentBuild) modeName += " + Development Build";
         
         // Set test mode (no confirmation needed - user explicitly chose via menu button)
         if (bootstrapper.testModeSimpleUI != enableTestMode)
@@ -194,31 +211,34 @@ public class QuestHouseBuildMenu
         }
 
         // CRITICAL: Manually set ProductName BEFORE build (BuildNameProcessor will also do this, but we need it NOW)
-        string baseProductName = PlayerSettings.productName.Replace("_TestMode", "");
+        string baseProductName = PlayerSettings.productName.Replace("_TestMode", "").Replace("_Dev", "");
         string buildProductName; // This is what the APK will be named
         
         if (enableTestMode)
         {
             buildProductName = baseProductName + "_TestMode";
-            PlayerSettings.productName = buildProductName;
-            Debug.Log($"[QuestHouseBuildMenu] PRE-BUILD: Set ProductName to '{PlayerSettings.productName}' for Test Mode");
+        }
+        else if (developmentBuild)
+        {
+            buildProductName = baseProductName + "_Dev";
         }
         else
         {
             buildProductName = baseProductName;
-            PlayerSettings.productName = buildProductName;
-            Debug.Log($"[QuestHouseBuildMenu] PRE-BUILD: Set ProductName to '{PlayerSettings.productName}' for Production Mode");
         }
+        
+        PlayerSettings.productName = buildProductName;
+        Debug.Log($"[QuestHouseBuildMenu] PRE-BUILD: Set ProductName to '{PlayerSettings.productName}'");
 
         // Build (and optionally install)
         // Pass the build product name so ADBTools knows what APK to look for
         if (alsoInstall)
         {
-            ADBTools.BuildAndInstall(buildProductName);
+            ADBTools.BuildAndInstall(buildProductName, developmentBuild);
         }
         else
         {
-            ADBTools.BuildApk();
+            ADBTools.BuildApk(developmentBuild);
         }
         
         // CRITICAL: Restore ProductName after build

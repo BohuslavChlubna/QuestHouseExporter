@@ -78,3 +78,4 @@ public static class RuntimeLogger
             Debug.LogError("RuntimeLogger.ClearLog failed: " + ex.Message);
         }
     }
+}
