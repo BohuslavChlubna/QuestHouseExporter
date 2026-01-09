@@ -183,6 +183,9 @@ public class QuestHouseBuildMenu
 
     private static void SetTestModeAndBuild(bool enableTestMode, bool alsoInstall, bool developmentBuild = false)
     {
+        // Always save all open scenes before build to prevent data loss
+        EditorSceneManager.SaveOpenScenes();
+
         var bootstrapper = FindBootstrapper();
         
         if (bootstrapper == null)
