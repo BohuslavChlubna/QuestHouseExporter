@@ -139,10 +139,10 @@ public class InRoomWallVisualizer : MonoBehaviour
     {
         GameObject ceilingObj = new GameObject("Ceiling_Sloped");
         ceilingObj.transform.SetParent(transform, false);
-        
+
         Mesh mesh = new Mesh();
         mesh.vertices = ceilingBoundary.ToArray();
-        
+
         // Triangulate (reversed winding for ceiling)
         int[] tris = new int[(ceilingBoundary.Count - 2) * 3];
         for (int i = 0; i < ceilingBoundary.Count - 2; i++)
@@ -153,15 +153,16 @@ public class InRoomWallVisualizer : MonoBehaviour
         }
         mesh.triangles = tris;
         mesh.RecalculateNormals();
-        
+
         var mf = ceilingObj.AddComponent<MeshFilter>();
         mf.mesh = mesh;
-        
+
         var mr = ceilingObj.AddComponent<MeshRenderer>();
-        Material mat = new Material(wallMaterial);
-        mat.color = new Color(0.9f, 0.9f, 1.0f, floorOpacity * 1.2f); // Slightly different color for sloped ceiling
-        mr.material = mat;
-        
+        mr.material = wallMaterial;
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", new Color(0.9f, 0.9f, 1.0f, floorOpacity * 1.2f));
+        mr.SetPropertyBlock(mpb);
+
         visualizedWalls.Add(ceilingObj);
     }
     
@@ -246,10 +247,11 @@ public class InRoomWallVisualizer : MonoBehaviour
         mf.mesh = mesh;
         
         var mr = wallObj.AddComponent<MeshRenderer>();
-        Material mat = new Material(wallMaterial);
-        mat.color = wallColor;
-        mr.material = mat;
-        
+        mr.material = wallMaterial;
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", wallColor);
+        mr.SetPropertyBlock(mpb);
+
         visualizedWalls.Add(wallObj);
     }
     
@@ -276,10 +278,11 @@ public class InRoomWallVisualizer : MonoBehaviour
         mf.mesh = mesh;
         
         var mr = floorObj.AddComponent<MeshRenderer>();
-        Material mat = new Material(wallMaterial);
-        mat.color = new Color(wallColor.r, wallColor.g, wallColor.b, floorOpacity);
-        mr.material = mat;
-        
+        mr.material = wallMaterial;
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", new Color(wallColor.r, wallColor.g, wallColor.b, floorOpacity));
+        mr.SetPropertyBlock(mpb);
+
         visualizedWalls.Add(floorObj);
     }
     
@@ -312,10 +315,11 @@ public class InRoomWallVisualizer : MonoBehaviour
         mf.mesh = mesh;
         
         var mr = ceilingObj.AddComponent<MeshRenderer>();
-        Material mat = new Material(wallMaterial);
-        mat.color = new Color(wallColor.r, wallColor.g, wallColor.b, floorOpacity);
-        mr.material = mat;
-        
+        mr.material = wallMaterial;
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", new Color(wallColor.r, wallColor.g, wallColor.b, floorOpacity));
+        mr.SetPropertyBlock(mpb);
+
         visualizedWalls.Add(ceilingObj);
     }
     
@@ -332,10 +336,11 @@ public class InRoomWallVisualizer : MonoBehaviour
         mf.mesh = mesh;
         
         var mr = boxObj.AddComponent<MeshRenderer>();
-        Material mat = new Material(wallMaterial);
-        mat.color = color;
-        mr.material = mat;
-        
+        mr.material = wallMaterial;
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", color);
+        mr.SetPropertyBlock(mpb);
+
         visualizedWalls.Add(boxObj);
     }
 
@@ -646,5 +651,26 @@ public class InRoomWallVisualizer : MonoBehaviour
     void OnDisable()
     {
         ClearWalls();
+    }
+
+    /// <summary>
+    /// Asynchronous version: generates wall outlines from offline RoomData, one room per frame.
+    /// </summary>
+    public System.Collections.IEnumerator GenerateWallsFromOfflineDataAsync(List<RoomData> rooms)
+    {
+        Debug.Log($"[InRoomWallVisualizer] (Async) Generating from {rooms.Count} offline rooms");
+        ClearWalls();
+
+        int wallCount = 0;
+        int anchorCount = 0;
+
+        foreach (var room in rooms)
+        {
+            wallCount += CreateWallsFromOfflineData(room);
+            anchorCount += CreateAnchorsFromOfflineData(room);
+            yield return null; // Wait one frame per room
+        }
+
+        RuntimeLogger.WriteLine($"In-Room walls generated from offline data (async): {wallCount} walls, {anchorCount} anchors in {rooms.Count} rooms");
     }
 }

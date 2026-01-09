@@ -153,7 +153,7 @@ public static class SVGFloorPlanGenerator
         sb.AppendLine("    .dim-line { stroke: blue; stroke-width: 0.02; fill: none; }");
         sb.AppendLine("    .arrow { stroke: blue; stroke-width: 0.02; fill: none; marker-start: url(#arrowhead-start); marker-end: url(#arrowhead-end); }");
         sb.AppendLine("    .window { fill: lightblue; stroke: blue; stroke-width: 0.03; }");
-        sb.AppendLine("    .door { fill: brown; stroke: darkbrown; stroke-width: 0.03; }");
+        sb.AppendLine("    .door { fill: brown; stroke: #8B4513; stroke-width: 0.03; }");
         sb.AppendLine("    .opening-label { font-size: 0.15px; fill: darkgreen; }");
         sb.AppendLine("  </style>");
         sb.AppendLine("  <defs>");

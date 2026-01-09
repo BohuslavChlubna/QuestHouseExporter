@@ -12,7 +12,7 @@ using Meta.XR.MRUtilityKit;
 public class MRUKRoomExporter : MonoBehaviour
 {
     [Header("Export Settings")]
-    public string exportFolder = "QuestHouseDesign";
+    public string exportFolder = "Export";
     public bool exportOBJ = true;
     public bool exportGLB = false;
     public bool exportUnifiedGLTF = true;
@@ -34,37 +34,38 @@ public class MRUKRoomExporter : MonoBehaviour
         
         try
         {
-            RuntimeLogger.Init(exportFolder);
-            RuntimeLogger.WriteLine("=== MRUKRoomExporter.ExportFromOfflineRooms started ===");
-            
-            string basePath = Path.Combine(Application.persistentDataPath, exportFolder);
+            // Vytvoøení složky Export/<timestamp>/
+            string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+            string basePath = Path.Combine(Application.persistentDataPath, exportFolder, timestamp);
             Directory.CreateDirectory(basePath);
-            
+
+            RuntimeLogger.Init(Path.Combine(exportFolder, timestamp));
+            RuntimeLogger.WriteLine("=== MRUKRoomExporter.ExportFromOfflineRooms started ===");
             RuntimeLogger.WriteLine($"Exporting {offlineRooms.Count} offline rooms");
-            
+
             // Group rooms by floor level
             var floorGroups = GroupRoomsByFloorOffline(offlineRooms);
             RuntimeLogger.WriteLine($"Detected {floorGroups.Count} floor levels");
-            
+
             List<Dictionary<string, object>> jsonList = new List<Dictionary<string, object>>();
             int roomIndex = 0;
-            
+
             foreach (var floorKvp in floorGroups.OrderBy(kv => kv.Key))
             {
                 int floorLevel = floorKvp.Key;
                 var floorRooms = floorKvp.Value;
                 RuntimeLogger.WriteLine($"Processing floor {floorLevel} with {floorRooms.Count} rooms");
-                
+
                 foreach (var room in floorRooms)
                 {
                     roomIndex++;
                     string roomName = room.roomName ?? $"Room_{roomIndex}";
                     RuntimeLogger.WriteLine($"  Exporting room: {roomName}");
-                    
+
                     var roomData = ExportRoomFromOfflineData(room, roomName, floorLevel, basePath);
                     if (roomData != null) jsonList.Add(roomData);
                 }
-                
+
                 // Export SVG floor plan for this floor
                 if (exportSVGFloorPlans)
                 {
@@ -73,7 +74,7 @@ public class MRUKRoomExporter : MonoBehaviour
                     RuntimeLogger.WriteLine($"  Exported SVG floor plan: {svgPath}");
                 }
             }
-            
+
             // Export unified GLTF/OBJ house model
             if (exportUnifiedGLTF || exportOBJ)
             {
@@ -81,24 +82,23 @@ public class MRUKRoomExporter : MonoBehaviour
                 GLTFHouseExporter.ExportUnifiedHouseFromOfflineData(offlineRooms, modelPath, exportOBJ);
                 RuntimeLogger.WriteLine($"Exported unified house model: {modelPath}");
             }
-            
-            // Export detailed Excel data
+
+            // Export detailed Excel data (novì pouze jeden .xlsx soubor)
             if (exportDetailedExcel)
             {
-                DetailedExcelExporter.ExportToExcelFromOfflineData(offlineRooms, basePath);
+                DetailedExcelExporter.ExportToExcelXLSX(offlineRooms, basePath);
                 RuntimeLogger.WriteLine($"Exported detailed Excel data to: {basePath}");
             }
-            
-            // Export summary files
-            ExportSummaryCSV(basePath, jsonList);
+
+            // Export summary JSON (ponecháme pro kontrolu)
             ExportSummaryJSON(basePath, jsonList);
-            
+
             // Save raw offline room data as well
             string offlineJsonPath = Path.Combine(basePath, "offline_rooms_raw.json");
             var wrapper = new RoomDataListWrapper { rooms = offlineRooms };
             string rawJson = JsonUtility.ToJson(wrapper, true);
             File.WriteAllText(offlineJsonPath, rawJson);
-            
+
             RuntimeLogger.WriteLine($"Export completed: {jsonList.Count} rooms exported to {basePath}");
             Debug.Log($"[MRUKRoomExporter] Export complete: {basePath}");
             RuntimeLogger.WriteLine("=== Export completed successfully ===");
@@ -349,11 +349,14 @@ public class MRUKRoomExporter : MonoBehaviour
     {
         try
         {
-            RuntimeLogger.Init(exportFolder);
-            RuntimeLogger.WriteLine("=== MRUKRoomExporter.PerformExport started ===");
 
-            string basePath = Path.Combine(Application.persistentDataPath, exportFolder);
+            // Vytvoøení složky Export/<timestamp>/
+            string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+            string basePath = Path.Combine(Application.persistentDataPath, exportFolder, timestamp);
             Directory.CreateDirectory(basePath);
+
+            RuntimeLogger.Init(Path.Combine(exportFolder, timestamp));
+            RuntimeLogger.WriteLine("=== MRUKRoomExporter.PerformExport started ===");
 
             RuntimeLogger.WriteLine($"Found {rooms.Count} rooms to export");
 
@@ -397,15 +400,10 @@ public class MRUKRoomExporter : MonoBehaviour
                 RuntimeLogger.WriteLine($"Exported unified GLTF house: {gltfPath}");
             }
 
-            // Export detailed Excel data
-            if (exportDetailedExcel)
-            {
-                DetailedExcelExporter.ExportToExcel(rooms, basePath);
-                RuntimeLogger.WriteLine($"Exported detailed Excel data to: {basePath}");
-            }
 
-            // Export summary files
-            ExportSummaryCSV(basePath, jsonList);
+            // Excel export se provádí pouze z offline dat, nikoliv z MRUKRoom
+
+            // Export summary JSON (ponecháme pro kontrolu)
             ExportSummaryJSON(basePath, jsonList);
 
             RuntimeLogger.WriteLine($"Export completed: {jsonList.Count} rooms exported to {basePath}");

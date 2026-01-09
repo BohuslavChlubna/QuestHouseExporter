@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: VeksCo
-  productName: QuestHouseDesign_Dev
+  productName: QuestHouseDesign
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.12156863, g: 0.12156863, b: 0.1254902, a: 1}
@@ -146,8 +146,6 @@ PlayerSettings:
   bundleVersion: 1.0
   preloadedAssets:
   - {fileID: 11400000, guid: f2664650c429f414f80b3f3ddf7e663c, type: 2}
-  - {fileID: 370467694656072522, guid: 47b4178fd7c01714da7b71fa69d6f2e4, type: 2}
-  - {fileID: -3541483539303392845, guid: 83076d0361f095f418d3af4a87a4536a, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1

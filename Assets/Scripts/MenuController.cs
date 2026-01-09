@@ -34,12 +34,20 @@ public class MenuController : MonoBehaviour
     {
         Debug.Log("[MenuController] Show() called, creating UI");
         CreateMenuUI();
-        
+
         // Load offline room data (NO MRUK dependency at startup!)
         LoadOfflineRooms();
-        
-        // Auto-generate visualizations from offline data
-        GenerateInitialVisualizations();
+
+        // Vygeneruj dollhouse na pozadí pouze pokud není testModeSimpleUI
+        if (!testModeSimpleUI)
+        {
+            GenerateDollhouseBackground();
+            GenerateInitialVisualizations();
+        }
+        else
+        {
+            GenerateInitialVisualizations();
+        }
     }
     
     void LoadOfflineRooms()
@@ -62,17 +70,14 @@ public class MenuController : MonoBehaviour
     {
         if (testModeSimpleUI)
         {
-            Debug.Log("[MenuController] TEST MODE - Skipping visualizations completely");
-            RuntimeLogger.WriteLine("[MenuController] Running in TEST MODE - UI only, no visualizations");
-            
-            // CRITICAL: Update status immediately in test mode
+            Debug.Log("[MenuController] TEST MODE - UI only, dollhouse will be shown as background");
+            RuntimeLogger.WriteLine("[MenuController] TEST MODE - UI only, dollhouse as background");
+            // Update status immediately in test mode
             if (statusText != null)
             {
                 if (offlineRooms.Count > 0)
                 {
-                    bool isDefaultRoom = offlineRooms.Count == 1 && 
-                                        offlineRooms[0].roomId == "default_test_room";
-                    
+                    bool isDefaultRoom = offlineRooms.Count == 1 && offlineRooms[0].roomId == "default_test_room";
                     if (isDefaultRoom)
                     {
                         statusText.text = "TEST MODE - UI only\nDefault room loaded (4x5m)";
@@ -90,8 +95,7 @@ public class MenuController : MonoBehaviour
                     statusText.color = new Color(1f, 0.5f, 0f);
                 }
             }
-            
-            return; // STOP HERE - don't even start coroutine!
+            return;
         }
         
         Debug.Log("[MenuController] Production mode - Scheduling visualization generation (delayed to prevent startup hang)");
@@ -112,53 +116,57 @@ public class MenuController : MonoBehaviour
         bool success = true;
         string errorMessage = "";
         
-        // Generate DollHouse
+        // Generate DollHouse (async per room)
         if (dollHouseVisualizer != null && dollHouseVisualizer.enabled)
         {
-            try
-            {
-                Debug.Log("[MenuController] Generating doll house...");
-                dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
-                Debug.Log("[MenuController] Doll house generated");
-            }
-            catch (System.Exception ex)
+            Debug.Log("[MenuController] Generating doll house (async)...");
+            System.Exception dollhouseEx = null;
+            bool dollhouseSuccess = true;
+            yield return StartCoroutine(DollhouseTryCatchWrapper(offlineRooms, ex => { dollhouseEx = ex; dollhouseSuccess = false; }));
+            if (!dollhouseSuccess)
             {
                 success = false;
-                errorMessage = $"DollHouse error: {ex.Message}";
-                Debug.LogError($"[MenuController] DollHouse generation failed: {ex.Message}");
-                RuntimeLogger.LogException(ex);
+                errorMessage = $"DollHouse error: {dollhouseEx.Message}";
+                Debug.LogError($"[MenuController] DollHouse generation failed: {dollhouseEx.Message}");
+                RuntimeLogger.LogException(dollhouseEx);
+            }
+            else
+            {
+                Debug.Log("[MenuController] Doll house generated (async)");
             }
         }
         else
         {
             Debug.LogWarning("[MenuController] DollHouseVisualizer is disabled or null");
         }
-        
+
         // Wait a frame to prevent frame drop
         yield return null;
-        
-        // Generate InRoom walls
+
+        // Generate InRoom walls (async per room)
         if (inRoomWallVisualizer != null && inRoomWallVisualizer.enabled)
         {
-            try
-            {
-                Debug.Log("[MenuController] Generating in-room walls...");
-                inRoomWallVisualizer.GenerateWallsFromOfflineData(offlineRooms);
-                Debug.Log("[MenuController] In-room walls generated");
-            }
-            catch (System.Exception ex)
+            Debug.Log("[MenuController] Generating in-room walls (async)...");
+            System.Exception inroomEx = null;
+            bool inroomSuccess = true;
+            yield return StartCoroutine(InRoomTryCatchWrapper(offlineRooms, ex => { inroomEx = ex; inroomSuccess = false; }));
+            if (!inroomSuccess)
             {
                 success = false;
-                errorMessage = $"InRoom error: {ex.Message}";
-                Debug.LogError($"[MenuController] InRoom generation failed: {ex.Message}");
-                RuntimeLogger.LogException(ex);
+                errorMessage = $"InRoom error: {inroomEx.Message}";
+                Debug.LogError($"[MenuController] InRoom generation failed: {inroomEx.Message}");
+                RuntimeLogger.LogException(inroomEx);
+            }
+            else
+            {
+                Debug.Log("[MenuController] In-room walls generated (async)");
             }
         }
         else
         {
             Debug.LogWarning("[MenuController] InRoomWallVisualizer is disabled or null");
         }
-        
+
         // Update status
         if (success)
         {
@@ -171,6 +179,43 @@ public class MenuController : MonoBehaviour
                 statusText.text = $"Visualization error!\n{errorMessage}\nUI still works.";
                 statusText.color = Color.red;
             }
+        }
+    }
+
+    // Helper coroutine wrappers for try/catch with yield
+    System.Collections.IEnumerator DollhouseTryCatchWrapper(List<RoomData> rooms, System.Action<System.Exception> onError)
+    {
+        var enumerator = dollHouseVisualizer.GenerateDollHouseFromOfflineDataAsync(rooms);
+        while (true)
+        {
+            try
+            {
+                if (!enumerator.MoveNext()) break;
+            }
+            catch (System.Exception ex)
+            {
+                onError?.Invoke(ex);
+                yield break;
+            }
+            yield return enumerator.Current;
+        }
+    }
+
+    System.Collections.IEnumerator InRoomTryCatchWrapper(List<RoomData> rooms, System.Action<System.Exception> onError)
+    {
+        var enumerator = inRoomWallVisualizer.GenerateWallsFromOfflineDataAsync(rooms);
+        while (true)
+        {
+            try
+            {
+                if (!enumerator.MoveNext()) break;
+            }
+            catch (System.Exception ex)
+            {
+                onError?.Invoke(ex);
+                yield break;
+            }
+            yield return enumerator.Current;
         }
     }
     
@@ -274,18 +319,31 @@ public class MenuController : MonoBehaviour
         
         // Scan Button
         scanButton = CreateButton("ScanButton", "Request Room Scan", new Vector2(0, -50), OnScanButtonPressed);
-        
+
         // Export Button
         exportButton = CreateButton("ExportButton", "Export Room Data", new Vector2(0, -150), OnExportButtonPressed);
         exportButton.interactable = true;
-        
+
         // Reload Rooms Button
         reloadButton = CreateButton("ReloadButton", "Reload Rooms", new Vector2(0, -250), OnReloadRoomsPressed);
-        
+
         // View Mode Toggle Button
+        Button toggleViewButton = null;
         if (viewModeController != null)
         {
-            CreateButton("ViewModeButton", "Toggle View Mode", new Vector2(0, -350), OnToggleViewMode);
+            toggleViewButton = CreateButton("ViewModeButton", "Toggle View Mode", new Vector2(0, -350), OnToggleViewMode);
+        }
+
+        // Disable buttons if not running on Quest/XR
+        bool isQuest = false;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        isQuest = true;
+#endif
+        if (!isQuest)
+        {
+            if (scanButton != null) scanButton.interactable = false;
+            if (reloadButton != null) reloadButton.interactable = false;
+            if (toggleViewButton != null) toggleViewButton.interactable = false;
         }
         
         Debug.Log("[MenuController] UI created successfully");
@@ -695,6 +753,34 @@ public class MenuController : MonoBehaviour
             path = obj.name + "/" + path;
         }
         return path;
+    }
+
+    // Vygeneruje a umístí dollhouse na pozadí menu (pouze pokud není testModeSimpleUI)
+    void GenerateDollhouseBackground()
+    {
+        if (dollHouseVisualizer != null && offlineRooms != null && offlineRooms.Count > 0)
+        {
+            dollHouseVisualizer.ClearDollHouse();
+            // Zvýraznìní: vìtší mìøítko, jasnìjší barva
+            dollHouseVisualizer.scale = 0.3f;
+            if (dollHouseVisualizer.roomMaterial != null)
+            {
+                dollHouseVisualizer.roomMaterial.color = new Color(0.2f, 0.7f, 1f, 0.8f); // svìtle modrá, ménì prùhledná
+            }
+            dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
+
+            // Umístìní dollhouse blíže ke kameøe (2.5m od kamery, menu je ve 3m)
+            Vector3 basePos = new Vector3(0, 1.5f, 2.5f);
+            Quaternion baseRot = Quaternion.identity;
+            if (mainCamera != null)
+            {
+                basePos = mainCamera.transform.position + mainCamera.transform.forward * 2.5f;
+                baseRot = Quaternion.LookRotation(-mainCamera.transform.forward);
+            }
+            dollHouseVisualizer.transform.position = basePos;
+            dollHouseVisualizer.transform.rotation = baseRot;
+            Debug.Log($"[MenuController] Dollhouse positioned at {basePos}, scale {dollHouseVisualizer.scale}");
+        }
     }
 }
 

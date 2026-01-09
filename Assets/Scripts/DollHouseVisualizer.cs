@@ -172,17 +172,17 @@ public class DollHouseVisualizer : MonoBehaviour
     {
         var ceilingObj = new GameObject("Ceiling_Sloped");
         ceilingObj.transform.SetParent(parent, false);
-        
+
         // Convert to local coordinates
         Vector3[] localVerts = new Vector3[ceilingBoundary.Count];
         for (int i = 0; i < ceilingBoundary.Count; i++)
         {
             localVerts[i] = ceilingBoundary[i] - roomCenter;
         }
-        
+
         Mesh ceilingMesh = new Mesh();
         ceilingMesh.vertices = localVerts;
-        
+
         // Triangulate (reversed for ceiling)
         int[] tris = new int[(ceilingBoundary.Count - 2) * 3];
         for (int i = 0; i < ceilingBoundary.Count - 2; i++)
@@ -193,43 +193,47 @@ public class DollHouseVisualizer : MonoBehaviour
         }
         ceilingMesh.triangles = tris;
         ceilingMesh.RecalculateNormals();
-        
+
         var mf = ceilingObj.AddComponent<MeshFilter>();
         mf.mesh = ceilingMesh;
-        
+
         var mr = ceilingObj.AddComponent<MeshRenderer>();
-        Material ceilingMat = new Material(roomMaterial);
-        ceilingMat.color = new Color(0.7f, 0.7f, 0.9f, 0.6f); // Slightly different color for ceiling
-        mr.material = ceilingMat;
+        mr.material = roomMaterial;
+        // Use MaterialPropertyBlock for color
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", new Color(0.7f, 0.7f, 0.9f, 0.6f));
+        mr.SetPropertyBlock(mpb);
     }
     
     void CreateWallVisualization(WallData wall, Transform parent, Vector3 roomCenter, int floorLevel)
     {
         var wallObj = new GameObject("Wall");
         wallObj.transform.SetParent(parent, false);
-        
+
         // Convert to local coordinates (relative to room center)
         Vector3 localStart = (wall.start - roomCenter);
         Vector3 localEnd = (wall.end - roomCenter);
-        
+
         // Create wall quad
         Vector3 bottom1 = localStart;
         Vector3 bottom2 = localEnd;
         Vector3 top1 = localStart + Vector3.up * wall.height;
         Vector3 top2 = localEnd + Vector3.up * wall.height;
-        
+
         Mesh wallMesh = new Mesh();
         wallMesh.vertices = new Vector3[] { bottom1, bottom2, top2, top1 };
         wallMesh.triangles = new int[] { 0, 1, 2, 0, 2, 3 };
         wallMesh.RecalculateNormals();
-        
+
         var mf = wallObj.AddComponent<MeshFilter>();
         mf.mesh = wallMesh;
-        
+
         var mr = wallObj.AddComponent<MeshRenderer>();
-        Material wallMat = new Material(roomMaterial);
-        wallMat.color = new Color(0.6f, 0.6f, 0.7f, 0.8f); // Slightly different color for walls
-        mr.material = wallMat;
+        mr.material = roomMaterial;
+        // Use MaterialPropertyBlock for color
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", new Color(0.6f, 0.6f, 0.7f, 0.8f));
+        mr.SetPropertyBlock(mpb);
     }
     
     Mesh CreateFloorMeshFromOfflineData(List<Vector3> boundary, Vector3 center)
@@ -355,6 +359,32 @@ public class DollHouseVisualizer : MonoBehaviour
             if (go != null) Destroy(go);
         }
         visualizedRooms.Clear();
+    }
+
+    /// <summary>
+    /// Asynchronous version: generates dollhouse from offline RoomData, one room per frame.
+    /// </summary>
+    public System.Collections.IEnumerator GenerateDollHouseFromOfflineDataAsync(List<RoomData> rooms)
+    {
+        Debug.Log($"[DollHouseVisualizer] (Async) Generating from {rooms.Count} offline rooms");
+        ClearDollHouse();
+
+        var floorGroups = GroupRoomsByFloorOffline(rooms);
+        Debug.Log($"[DollHouseVisualizer] (Async) Detected {floorGroups.Count} floor levels");
+
+        foreach (var floorKvp in floorGroups)
+        {
+            int floorLevel = floorKvp.Key;
+            var floorRooms = floorKvp.Value;
+            Debug.Log($"[DollHouseVisualizer] (Async) Processing floor {floorLevel} with {floorRooms.Count} rooms");
+            foreach (var room in floorRooms)
+            {
+                CreateRoomVisualizationFromOfflineData(room, floorLevel);
+                yield return null; // Wait one frame per room
+            }
+        }
+
+        RuntimeLogger.WriteLine($"Doll house generated from offline data (async): {visualizedRooms.Count} rooms across {floorGroups.Count} floors");
     }
 }
 
