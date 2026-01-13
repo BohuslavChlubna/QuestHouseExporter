@@ -21,12 +21,15 @@ public class MenuController : MonoBehaviour
     
     void Start()
     {
-        Debug.Log("[MenuController] Start() called (will wait for Show() call)");
+        Debug.Log($"[MenuController] Start() called (will wait for Show() call) on {gameObject.name} (ID: {GetInstanceID()})");
+        Debug.Log($"[MenuController] Start() statusText: {(statusText == null ? "NULL" : statusText.gameObject.name)}");
+        Show();
     }
     
     public void Show()
     {
-        Debug.Log("[MenuController] Show() called");
+        Debug.Log($"[MenuController] Show() called on {gameObject.name} (ID: {GetInstanceID()})");
+        Debug.Log($"[MenuController] Show() statusText: {(statusText == null ? "NULL" : statusText.gameObject.name)}");
 
         // Load offline room data (NO MRUK dependency at startup!)
         LoadOfflineRooms();
@@ -61,6 +64,8 @@ public class MenuController : MonoBehaviour
     
     void GenerateInitialVisualizations()
     {
+        Debug.Log($"[MenuController] GenerateInitialVisualizations() on {gameObject.name} (ID: {GetInstanceID()})");
+        Debug.Log($"[MenuController] GenerateInitialVisualizations() statusText: {(statusText == null ? "NULL" : statusText.gameObject.name)}");
         if (testModeSimpleUI)
         {
             Debug.Log("[MenuController] TEST MODE - UI only, dollhouse will be shown as background");
@@ -217,6 +222,7 @@ public class MenuController : MonoBehaviour
     
     void UpdateStatusAfterVisualization()
     {
+        Debug.Log($"[MenuController] UpdateStatusAfterVisualization() called, statusText is null: {statusText == null}, obj: {(statusText != null ? statusText.gameObject.name : "NULL")}");
         if (statusText != null)
         {
             if (offlineRooms.Count > 0)
@@ -228,17 +234,20 @@ public class MenuController : MonoBehaviour
                 {
                     statusText.text = "Using test room (4x5m)\nClick 'Reload Rooms' to scan real rooms";
                     statusText.color = new Color(1f, 0.8f, 0.2f);
+                    Debug.Log($"[MenuController] statusText set to: {statusText.text}");
                 }
                 else
                 {
                     statusText.text = $"Ready! {offlineRooms.Count} room(s) loaded";
                     statusText.color = Color.cyan;
+                    Debug.Log($"[MenuController] statusText set to: {statusText.text}");
                 }
             }
             else
             {
                 statusText.text = "No rooms found - Click 'Reload Rooms' to scan";
                 statusText.color = new Color(1f, 0.5f, 0f);
+                Debug.Log($"[MenuController] statusText set to: {statusText.text}");
             }
         }
     }

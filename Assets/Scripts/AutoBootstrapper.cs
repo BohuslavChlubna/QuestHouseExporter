@@ -46,21 +46,11 @@ public class AutoBootstrapper : MonoBehaviour
             viewMode.dollHouseRoot = dollHouseRoot;
             viewMode.inRoomWallsRoot = inRoomRoot;
 
-            Debug.Log("[AutoBootstrapper] Adding MenuController (will be shown after init)...");
-            var menuController = go.AddComponent<MenuController>();
-            menuController.roomExporter = exporter;
-            menuController.viewModeController = viewMode;
-            menuController.dollHouseVisualizer = dollHouse;
-            menuController.inRoomWallVisualizer = inRoomViz;
-            menuController.testModeSimpleUI = testModeSimpleUI; // Pass test mode flag
-            menuController.enabled = false;
-
+            Debug.Log("[AutoBootstrapper] Skipping dynamic MenuController creation. Add MenuController to scene manually and set references in Inspector.");
             Debug.Log("[AutoBootstrapper] Adding InitializationScreen...");
             var initScreen = go.AddComponent<InitializationScreen>();
             initScreen.Show(() => {
-                Debug.Log("[AutoBootstrapper] Initialization complete, enabling MenuController");
-                menuController.enabled = true;
-                menuController.Show();
+                Debug.Log("[AutoBootstrapper] Initialization complete. Enable and show MenuController manually if needed.");
             });
 
             DontDestroyOnLoad(go);

@@ -86,9 +86,10 @@ public class RoomDataStorage : MonoBehaviour
         {
             roomId = "default_test_room",
             roomName = "Default 4x5m Room",
-            ceilingHeight = 2.5f
+            ceilingHeight = 2.5f,
+            hasSlopedCeiling = true
         };
-        
+
         // Floor boundary (4x5 meters)
         defaultRoom.floorBoundary = new List<Vector3>
         {
@@ -97,7 +98,16 @@ public class RoomDataStorage : MonoBehaviour
             new Vector3(2f, 0f, 2.5f),    // top-right
             new Vector3(-2f, 0f, 2.5f)    // top-left
         };
-        
+
+        // Sloped ceiling boundary (y = 2.5f on one side, y = 2.0f on the other)
+        defaultRoom.ceilingBoundary = new List<Vector3>
+        {
+            new Vector3(-2f, 2.0f, -2.5f),  // bottom-left (nižší)
+            new Vector3(2f, 2.0f, -2.5f),   // bottom-right (nižší)
+            new Vector3(2f, 2.5f, 2.5f),    // top-right (vyšší)
+            new Vector3(-2f, 2.5f, 2.5f)    // top-left (vyšší)
+        };
+
         // Walls
         defaultRoom.walls = new List<WallData>
         {
@@ -106,7 +116,7 @@ public class RoomDataStorage : MonoBehaviour
             new WallData { start = new Vector3(2f, 0f, 2.5f), end = new Vector3(-2f, 0f, 2.5f), height = 2.5f },    // Back
             new WallData { start = new Vector3(-2f, 0f, 2.5f), end = new Vector3(-2f, 0f, -2.5f), height = 2.5f }   // Left
         };
-        
+
         // Add door on front wall
         defaultRoom.walls[0].attachedAnchors.Add(new AnchorData
         {
@@ -115,8 +125,8 @@ public class RoomDataStorage : MonoBehaviour
             scale = new Vector3(0.9f, 2.0f, 0.1f),
             rotation = Quaternion.identity
         });
-        
-        // Add window on back wall
+
+        // Add window on back wall (center)
         defaultRoom.walls[2].attachedAnchors.Add(new AnchorData
         {
             anchorType = "WINDOW",
@@ -124,12 +134,20 @@ public class RoomDataStorage : MonoBehaviour
             scale = new Vector3(1.2f, 1.0f, 0.1f),
             rotation = Quaternion.identity
         });
-        
+        // Add second window on right wall
+        defaultRoom.walls[1].attachedAnchors.Add(new AnchorData
+        {
+            anchorType = "WINDOW",
+            position = new Vector3(2f, 1.5f, 0f),
+            scale = new Vector3(1.2f, 1.0f, 0.1f),
+            rotation = Quaternion.Euler(0, 90, 0)
+        });
+
         cachedRooms.Add(defaultRoom);
         SaveToDisk();
-        
-        Debug.Log("[RoomDataStorage] Created default 4x5m test room");
-        RuntimeLogger.WriteLine("[RoomDataStorage] No saved data found - created default test room (4x5m, 1 door, 1 window)");
+
+        Debug.Log("[RoomDataStorage] Created default 4x5m test room (2 windows, 1 door, sloped ceiling)");
+        RuntimeLogger.WriteLine("[RoomDataStorage] No saved data found - created default test room (4x5m, 2 windows, 1 door, sloped ceiling)");
     }
     
     void LoadFromDisk()
