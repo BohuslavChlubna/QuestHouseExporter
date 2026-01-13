@@ -6,23 +6,17 @@ using Meta.XR.MRUtilityKit;
 
 public class MenuController : MonoBehaviour
 {
-    [Header("TEST MODE - Disable visualizations for debugging")]
-    public bool testModeSimpleUI = false; // Set TRUE to test just UI without dollhouse
-    
+    public bool testModeSimpleUI = false;
+    [SerializeField] private TextMeshProUGUI statusText;
+    [SerializeField] private Button scanButton;
+    [SerializeField] private Button exportButton;
+    [SerializeField] private Button reloadButton;
+    [SerializeField] private Button viewModeButton;
     public MRUKRoomExporter roomExporter;
     public ViewModeController viewModeController;
     public DollHouseVisualizer dollHouseVisualizer;
     public InRoomWallVisualizer inRoomWallVisualizer;
-    
-    private GameObject menuCanvas;
-    private TextMeshProUGUI statusText;
-    private Button scanButton;
-    private Button exportButton;
-    private Button reloadButton;
-    
-    private Camera mainCamera; // Cache for VR camera
-    
-    // Offline cached room data from RoomDataStorage
+    // Nepoužívané promìnné pro dynamické UI odstranìny
     private List<RoomData> offlineRooms = new List<RoomData>();
     
     void Start()
@@ -32,8 +26,7 @@ public class MenuController : MonoBehaviour
     
     public void Show()
     {
-        Debug.Log("[MenuController] Show() called, creating UI");
-        CreateMenuUI();
+        Debug.Log("[MenuController] Show() called");
 
         // Load offline room data (NO MRUK dependency at startup!)
         LoadOfflineRooms();
@@ -108,6 +101,7 @@ public class MenuController : MonoBehaviour
     
     System.Collections.IEnumerator DelayedVisualizationGeneration()
     {
+        Debug.Log("[MenuController] DelayedVisualizationGeneration START");
         // Wait for UI to be fully shown
         yield return new WaitForSeconds(0.5f);
         
@@ -170,10 +164,12 @@ public class MenuController : MonoBehaviour
         // Update status
         if (success)
         {
+            Debug.Log("[MenuController] DelayedVisualizationGeneration END: success");
             UpdateStatusAfterVisualization();
         }
         else
         {
+            Debug.Log("[MenuController] DelayedVisualizationGeneration END: error");
             if (statusText != null)
             {
                 statusText.text = $"Visualization error!\n{errorMessage}\nUI still works.";
@@ -247,229 +243,9 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    void CreateMenuUI()
-    {
-        // Create Canvas
-        menuCanvas = new GameObject("MenuCanvas");
-        menuCanvas.transform.SetParent(transform);
-        
-        var canvas = menuCanvas.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        
-        var canvasScaler = menuCanvas.AddComponent<CanvasScaler>();
-        canvasScaler.dynamicPixelsPerUnit = 10;
-        
-        menuCanvas.AddComponent<GraphicRaycaster>();
-        
-        // Position canvas in front of user - QUEST 3 optimized positioning
-        // Default position (will be repositioned when camera is found)
-        menuCanvas.transform.localPosition = new Vector3(0, 1.5f, 3f);
-        menuCanvas.transform.localRotation = Quaternion.identity;
-        
-        var rectTransform = menuCanvas.GetComponent<RectTransform>();
-        rectTransform.sizeDelta = new Vector2(1200, 1000); // Larger for better readability
-        rectTransform.localScale = Vector3.one * 0.002f; // Larger scale for Quest 3
-        
-        // Background Panel
-        var bgPanel = new GameObject("Background");
-        bgPanel.transform.SetParent(menuCanvas.transform, false);
-        
-        var bgImage = bgPanel.AddComponent<Image>();
-        bgImage.color = new Color(0.1f, 0.1f, 0.1f, 0.9f);
-        
-        var bgRect = bgPanel.GetComponent<RectTransform>();
-        bgRect.anchorMin = Vector2.zero;
-        bgRect.anchorMax = Vector2.one;
-        bgRect.offsetMin = Vector2.zero;
-        bgRect.offsetMax = Vector2.zero;
-        
-        // Title Text
-        var titleObj = new GameObject("Title");
-        titleObj.transform.SetParent(menuCanvas.transform, false);
-        
-        var titleText = titleObj.AddComponent<TextMeshProUGUI>();
-        titleText.text = "Quest House Design";
-        titleText.fontSize = 48;
-        titleText.alignment = TextAlignmentOptions.Center;
-        titleText.color = Color.white;
-        
-        var titleRect = titleObj.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.5f, 1f);
-        titleRect.anchorMax = new Vector2(0.5f, 1f);
-        titleRect.pivot = new Vector2(0.5f, 1f);
-        titleRect.anchoredPosition = new Vector2(0, -50);
-        titleRect.sizeDelta = new Vector2(700, 80);
-        
-        // Status Text
-        var statusObj = new GameObject("StatusText");
-        statusObj.transform.SetParent(menuCanvas.transform, false);
-        
-        statusText = statusObj.AddComponent<TextMeshProUGUI>();
-        statusText.text = "Initializing...";
-        statusText.fontSize = 32;
-        statusText.alignment = TextAlignmentOptions.Center;
-        statusText.color = Color.cyan;
-        
-        var statusRect = statusObj.GetComponent<RectTransform>();
-        statusRect.anchorMin = new Vector2(0.5f, 0.5f);
-        statusRect.anchorMax = new Vector2(0.5f, 0.5f);
-        statusRect.pivot = new Vector2(0.5f, 0.5f);
-        statusRect.anchoredPosition = new Vector2(0, 50);
-        statusRect.sizeDelta = new Vector2(700, 60);
-        
-        // Scan Button
-        scanButton = CreateButton("ScanButton", "Request Room Scan", new Vector2(0, -50), OnScanButtonPressed);
-
-        // Export Button
-        exportButton = CreateButton("ExportButton", "Export Room Data", new Vector2(0, -150), OnExportButtonPressed);
-        exportButton.interactable = true;
-
-        // Reload Rooms Button
-        reloadButton = CreateButton("ReloadButton", "Reload Rooms", new Vector2(0, -250), OnReloadRoomsPressed);
-
-        // View Mode Toggle Button
-        Button toggleViewButton = null;
-        if (viewModeController != null)
-        {
-            toggleViewButton = CreateButton("ViewModeButton", "Toggle View Mode", new Vector2(0, -350), OnToggleViewMode);
-        }
-
-        // Disable buttons if not running on Quest/XR
-        bool isQuest = false;
-#if UNITY_ANDROID && !UNITY_EDITOR
-        isQuest = true;
-#endif
-        if (!isQuest)
-        {
-            if (scanButton != null) scanButton.interactable = false;
-            if (reloadButton != null) reloadButton.interactable = false;
-            if (toggleViewButton != null) toggleViewButton.interactable = false;
-        }
-        
-        Debug.Log("[MenuController] UI created successfully");
-        
-        // CRITICAL: Find camera and position menu immediately (don't wait for Update)
-        StartCoroutine(PositionMenuAfterCameraReady());
-    }
     
-    System.Collections.IEnumerator PositionMenuAfterCameraReady()
-    {
-        // Wait for XR camera to initialize (max 60 frames = 1 second at 60fps)
-        for (int i = 0; i < 60 && mainCamera == null; i++)
-        {
-            yield return null;
-            FindCamera();
-        }
-        
-        if (mainCamera == null)
-        {
-            Debug.LogError("[MenuController] CRITICAL: Camera not found! Using default position (0,1.5,3)");
-            RuntimeLogger.WriteLine("ERROR: Camera not found - using default menu position");
-            
-            // Fallback: position menu at default location
-            menuCanvas.transform.position = new Vector3(0, 1.5f, 3f);
-            menuCanvas.transform.rotation = Quaternion.identity;
-        }
-        else
-        {
-            // Position menu in front of camera - Quest optimized distance
-            Vector3 menuPosition = mainCamera.transform.position + mainCamera.transform.forward * 3f;
-            menuCanvas.transform.position = menuPosition;
-            
-            // Make menu face camera
-            Vector3 directionToCamera = mainCamera.transform.position - menuPosition;
-            directionToCamera.y = 0; // Keep menu upright
-            if (directionToCamera != Vector3.zero)
-            {
-                menuCanvas.transform.rotation = Quaternion.LookRotation(-directionToCamera);
-            }
-            
-            Debug.Log($"[MenuController] Menu positioned 3m in front of camera: {mainCamera.name}");
-            RuntimeLogger.WriteLine($"Menu positioned in front of camera: {mainCamera.name} at distance 3m");
-        }
-        
-        Debug.Log($"[MenuController] MENU IS NOW VISIBLE at position: {menuCanvas.transform.position}");
-    }
-    
-    void FindCamera()
-    {
-        // Try Camera.main first (should be tagged MainCamera in XR Rig)
-        mainCamera = Camera.main;
-        
-        // Fallback 1: Search for camera in XR Rig hierarchy
-        if (mainCamera == null)
-        {
-            // Look for "CenterEyeAnchor" or "Main Camera" in XR Rig
-            var centerEye = GameObject.Find("CenterEyeAnchor");
-            if (centerEye != null)
-            {
-                mainCamera = centerEye.GetComponent<Camera>();
-                if (mainCamera != null)
-                {
-                    Debug.Log($"[MenuController] Found XR camera in CenterEyeAnchor");
-                }
-            }
-        }
-        
-        // Fallback 2: Find first enabled camera
-        if (mainCamera == null)
-        {
-            var cameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
-            foreach (var cam in cameras)
-            {
-                if (cam.enabled)
-                {
-                    mainCamera = cam;
-                    Debug.Log($"[MenuController] Found camera: {cam.name} in {GetGameObjectPath(cam.gameObject)}");
-                    break;
-                }
-            }
-        }
-    }
 
-    Button CreateButton(string name, string text, Vector2 position, UnityEngine.Events.UnityAction onClick)
-    {
-        var buttonObj = new GameObject(name);
-        buttonObj.transform.SetParent(menuCanvas.transform, false);
-        
-        var buttonRect = buttonObj.AddComponent<RectTransform>();
-        buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
-        buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
-        buttonRect.pivot = new Vector2(0.5f, 0.5f);
-        buttonRect.anchoredPosition = position;
-        buttonRect.sizeDelta = new Vector2(600, 80);
-        
-        // Add Image component with explicit null sprite
-        var buttonImage = buttonObj.AddComponent<Image>();
-        buttonImage.color = new Color(0.2f, 0.4f, 0.8f, 1f);
-        buttonImage.sprite = null; // Unity creates default white sprite
-        
-        // Add Button component after Image
-        var button = buttonObj.AddComponent<Button>();
-        button.targetGraphic = buttonImage;
-        
-        // Button Text
-        var textObj = new GameObject("Text");
-        textObj.transform.SetParent(buttonObj.transform, false);
-        
-        var buttonText = textObj.AddComponent<TextMeshProUGUI>();
-        buttonText.text = text;
-        buttonText.fontSize = 36;
-        buttonText.alignment = TextAlignmentOptions.Center;
-        buttonText.color = Color.white;
-        
-        var textRect = textObj.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
-        
-        button.onClick.AddListener(onClick);
-        
-        return button;
-    }
-
-    void OnScanButtonPressed()
+    public void OnScanButtonPressed()
     {
         Debug.Log("[MenuController] Scan button pressed - requesting room scan");
         statusText.text = "Requesting room scan...";
@@ -487,7 +263,7 @@ public class MenuController : MonoBehaviour
         }
     }
 
-    void OnExportButtonPressed()
+    public void OnExportButtonPressed()
     {
         Debug.Log("[MenuController] Export button pressed");
         
@@ -530,7 +306,7 @@ public class MenuController : MonoBehaviour
         statusText.text = "Room data loaded. Ready to export.";
     }
 
-    void OnReloadRoomsPressed()
+    public void OnReloadRoomsPressed()
     {
         Debug.Log("[MenuController] Reload Rooms button pressed - NOW INITIALIZING MRUK!");
         statusText.text = "Scanning rooms via MRUK...";
@@ -724,7 +500,7 @@ public class MenuController : MonoBehaviour
     }
     
     
-    void OnToggleViewMode()
+    public void OnToggleViewMode()
     {
         Debug.Log("[MenuController] Toggle view mode pressed");
         if (viewModeController != null)
@@ -736,12 +512,7 @@ public class MenuController : MonoBehaviour
 
     void Update()
     {
-        // Make canvas always face the camera (camera should be found in PositionMenuAfterCameraReady)
-        if (menuCanvas != null && mainCamera != null)
-        {
-            menuCanvas.transform.LookAt(mainCamera.transform);
-            menuCanvas.transform.Rotate(0, 180, 0); // Flip to face user
-        }
+        // (Dynamické otáèení canvasu bylo odstranìno, statické UI ve scénì)
     }
     
     string GetGameObjectPath(GameObject obj)
@@ -761,22 +532,15 @@ public class MenuController : MonoBehaviour
         if (dollHouseVisualizer != null && offlineRooms != null && offlineRooms.Count > 0)
         {
             dollHouseVisualizer.ClearDollHouse();
-            // Zvýraznìní: vìtší mìøítko, jasnìjší barva
             dollHouseVisualizer.scale = 0.3f;
             if (dollHouseVisualizer.roomMaterial != null)
             {
-                dollHouseVisualizer.roomMaterial.color = new Color(0.2f, 0.7f, 1f, 0.8f); // svìtle modrá, ménì prùhledná
+                dollHouseVisualizer.roomMaterial.color = new Color(0.2f, 0.7f, 1f, 0.8f);
             }
             dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
-
-            // Umístìní dollhouse blíže ke kameøe (2.5m od kamery, menu je ve 3m)
+            // Statická pozice dollhouse (pøípadnì upravte podle potøeby)
             Vector3 basePos = new Vector3(0, 1.5f, 2.5f);
             Quaternion baseRot = Quaternion.identity;
-            if (mainCamera != null)
-            {
-                basePos = mainCamera.transform.position + mainCamera.transform.forward * 2.5f;
-                baseRot = Quaternion.LookRotation(-mainCamera.transform.forward);
-            }
             dollHouseVisualizer.transform.position = basePos;
             dollHouseVisualizer.transform.rotation = baseRot;
             Debug.Log($"[MenuController] Dollhouse positioned at {basePos}, scale {dollHouseVisualizer.scale}");

@@ -60,6 +60,15 @@ public class DollHouseVisualizer : MonoBehaviour
                 roomMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                 roomMaterial.renderQueue = 3000;
             }
+            // Double-sided rendering for Unlit/Color and Standard
+            if (shader.name == "Unlit/Color" || shader.name == "Standard" || shader.name == "QuestHouse/UnlitColor")
+            {
+                if (roomMaterial.HasProperty("_Cull"))
+                {
+                    roomMaterial.SetInt("_Cull", 0); // 0 = double-sided
+                }
+                // Poznámka: Pokud chcete plnì oboustranný shader, doporuèuji použít vlastní double-sided shader pro produkci.
+            }
         }
         
         Debug.Log("[DollHouseVisualizer] Material initialization complete");
@@ -163,6 +172,11 @@ public class DollHouseVisualizer : MonoBehaviour
         {
             CreateSlopedCeilingVisualization(room.ceilingBoundary, go.transform, roomCenter);
         }
+        else
+        {
+            // Flat ceiling
+            CreateFlatCeilingVisualization(room.floorBoundary, room.ceilingHeight, go.transform, roomCenter);
+        }
         
         visualizedRooms.Add(go);
         Debug.Log($"[DollHouseVisualizer] Created room: {room.roomName} on floor {floorLevel}");
@@ -204,7 +218,42 @@ public class DollHouseVisualizer : MonoBehaviour
         mpb.SetColor("_Color", new Color(0.7f, 0.7f, 0.9f, 0.6f));
         mr.SetPropertyBlock(mpb);
     }
-    
+
+    // Create flat ceiling from floor boundary and ceiling height
+    void CreateFlatCeilingVisualization(List<Vector3> boundary, float height, Transform parent, Vector3 roomCenter)
+    {
+        if (boundary == null || boundary.Count < 3) return;
+        var ceilingObj = new GameObject("Ceiling_Flat");
+        ceilingObj.transform.SetParent(parent, false);
+
+        Vector3[] verts = new Vector3[boundary.Count];
+        for (int i = 0; i < boundary.Count; i++)
+        {
+            verts[i] = boundary[i] - roomCenter + Vector3.up * height;
+        }
+
+        Mesh mesh = new Mesh();
+        mesh.vertices = verts;
+
+        int[] tris = new int[(boundary.Count - 2) * 3];
+        for (int i = 0; i < boundary.Count - 2; i++)
+        {
+            tris[i * 3 + 0] = 0;
+            tris[i * 3 + 2] = i + 1;
+            tris[i * 3 + 1] = i + 2;
+        }
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+
+        var mf = ceilingObj.AddComponent<MeshFilter>();
+        mf.mesh = mesh;
+
+        var mr = ceilingObj.AddComponent<MeshRenderer>();
+        mr.material = roomMaterial;
+        var mpb = new MaterialPropertyBlock();
+        mpb.SetColor("_Color", new Color(0.7f, 0.7f, 0.9f, 0.6f));
+        mr.SetPropertyBlock(mpb);
+    }
     void CreateWallVisualization(WallData wall, Transform parent, Vector3 roomCenter, int floorLevel)
     {
         var wallObj = new GameObject("Wall");
@@ -387,4 +436,5 @@ public class DollHouseVisualizer : MonoBehaviour
         RuntimeLogger.WriteLine($"Doll house generated from offline data (async): {visualizedRooms.Count} rooms across {floorGroups.Count} floors");
     }
 }
+
 
