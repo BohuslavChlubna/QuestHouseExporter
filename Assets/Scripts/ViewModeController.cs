@@ -28,14 +28,15 @@ public class ViewModeController : MonoBehaviour
             if (dollHouseVisualizer == null)
                 dollHouseVisualizer = dollHouseRoot.AddComponent<DollHouseVisualizer>();
         }
-        
+
         if (inRoomWallsRoot != null)
         {
             inRoomWallVisualizer = inRoomWallsRoot.GetComponent<InRoomWallVisualizer>();
             if (inRoomWallVisualizer == null)
                 inRoomWallVisualizer = inRoomWallsRoot.AddComponent<InRoomWallVisualizer>();
+            inRoomWallsRoot.SetActive(false); // Always start hidden
         }
-        
+
         ApplyMode(currentMode);
     }
 
@@ -73,7 +74,7 @@ public class ViewModeController : MonoBehaviour
                 }
                 if (dollHouseCamera != null) dollHouseCamera.enabled = true;
                 if (inRoomWallsRoot != null) inRoomWallsRoot.SetActive(false);
-                if (arPassthroughRoot != null) arPassthroughRoot.SetActive(false);
+                if (arPassthroughRoot != null) arPassthroughRoot.SetActive(true);
                 break;
                 
             case Mode.InRoom:

@@ -7,6 +7,16 @@ using Meta.XR.MRUtilityKit;
 /// </summary>
 public class DollHouseVisualizer : MonoBehaviour
 {
+    /// <summary>
+    /// Aktivuje pouze dollhouse s daným jménem (napø. DH_Default), ostatní skryje.
+    /// </summary>
+    public void ShowDollHouse(string name)
+    {
+        foreach (Transform child in transform)
+        {
+            child.gameObject.SetActive(child.name == name);
+        }
+    }
     [Header("Doll House Settings")]
     public float scale = 0.1f; // 1:10 scale
     public float floorSpacing = 0.5f; // vertical spacing between floors in doll house units
@@ -136,6 +146,13 @@ public class DollHouseVisualizer : MonoBehaviour
         
         var go = new GameObject($"DH_{room.roomName}");
         go.transform.SetParent(transform, false);
+        // Hide all other dollhouse children except the new one
+        foreach (Transform child in transform)
+        {
+            if (child.gameObject != go)
+                child.gameObject.SetActive(false);
+        }
+        go.SetActive(true);
         
         // Calculate room center
         Vector3 roomCenter = Vector3.zero;

@@ -6,18 +6,36 @@ using Meta.XR.MRUtilityKit;
 
 public class MenuController : MonoBehaviour
 {
-    public bool testModeSimpleUI = false;
     [SerializeField] private TextMeshProUGUI statusText;
     [SerializeField] private Button scanButton;
     [SerializeField] private Button exportButton;
     [SerializeField] private Button reloadButton;
     [SerializeField] private Button viewModeButton;
+    [SerializeField] private Button toggleDollhouseButton;
     public MRUKRoomExporter roomExporter;
     public ViewModeController viewModeController;
     public DollHouseVisualizer dollHouseVisualizer;
     public InRoomWallVisualizer inRoomWallVisualizer;
     // Nepoužívané promìnné pro dynamické UI odstranìny
     private List<RoomData> offlineRooms = new List<RoomData>();
+    private int currentDollHouseIndex = 0;
+
+    /// <summary>
+    /// Cyklicky pøepíná viditelnost dollhouse objektù pod DollHouseVisualizer (volat z UI tlaèítka)
+    /// </summary>
+    public void ToggleDollHouse()
+    {
+        if (dollHouseVisualizer == null) return;
+        int count = dollHouseVisualizer.transform.childCount;
+        if (count == 0) return;
+        currentDollHouseIndex = (currentDollHouseIndex + 1) % count;
+        for (int i = 0; i < count; i++)
+        {
+            var child = dollHouseVisualizer.transform.GetChild(i).gameObject;
+            child.SetActive(i == currentDollHouseIndex);
+        }
+        Debug.Log($"[MenuController] Toggled to dollhouse index: {currentDollHouseIndex}");
+    }
     
     void Start()
     {
@@ -34,22 +52,13 @@ public class MenuController : MonoBehaviour
         // Load offline room data (NO MRUK dependency at startup!)
         LoadOfflineRooms();
 
-        // Vygeneruj dollhouse na pozadí pouze pokud není testModeSimpleUI
-        if (!testModeSimpleUI)
-        {
-            GenerateDollhouseBackground();
-            GenerateInitialVisualizations();
-        }
-        else
-        {
-            GenerateInitialVisualizations();
-        }
+        GenerateDollhouseBackground();
+        GenerateInitialVisualizations();
     }
     
     void LoadOfflineRooms()
     {
         offlineRooms.Clear();
-        
         if (RoomDataStorage.Instance != null)
         {
             offlineRooms = RoomDataStorage.Instance.GetCachedRooms();
@@ -66,39 +75,8 @@ public class MenuController : MonoBehaviour
     {
         Debug.Log($"[MenuController] GenerateInitialVisualizations() on {gameObject.name} (ID: {GetInstanceID()})");
         Debug.Log($"[MenuController] GenerateInitialVisualizations() statusText: {(statusText == null ? "NULL" : statusText.gameObject.name)}");
-        if (testModeSimpleUI)
-        {
-            Debug.Log("[MenuController] TEST MODE - UI only, dollhouse will be shown as background");
-            RuntimeLogger.WriteLine("[MenuController] TEST MODE - UI only, dollhouse as background");
-            // Update status immediately in test mode
-            if (statusText != null)
-            {
-                if (offlineRooms.Count > 0)
-                {
-                    bool isDefaultRoom = offlineRooms.Count == 1 && offlineRooms[0].roomId == "default_test_room";
-                    if (isDefaultRoom)
-                    {
-                        statusText.text = "TEST MODE - UI only\nDefault room loaded (4x5m)";
-                        statusText.color = new Color(1f, 0.8f, 0.2f);
-                    }
-                    else
-                    {
-                        statusText.text = $"TEST MODE - UI only\n{offlineRooms.Count} room(s) loaded";
-                        statusText.color = Color.cyan;
-                    }
-                }
-                else
-                {
-                    statusText.text = "TEST MODE - UI only\nNo rooms found";
-                    statusText.color = new Color(1f, 0.5f, 0f);
-                }
-            }
-            return;
-        }
-        
         Debug.Log("[MenuController] Production mode - Scheduling visualization generation (delayed to prevent startup hang)");
         RuntimeLogger.WriteLine("[MenuController] Production mode - Visualizations will be generated after UI is ready");
-        
         // IMPORTANT: Delay visualization generation to prevent startup hang
         // This allows the UI to show first, then visualizations are created asynchronously
         StartCoroutine(DelayedVisualizationGeneration());
@@ -109,12 +87,16 @@ public class MenuController : MonoBehaviour
         Debug.Log("[MenuController] DelayedVisualizationGeneration START");
         // Wait for UI to be fully shown
         yield return new WaitForSeconds(0.5f);
-        
+
+        // Wait until visualizer komponenty jsou aktivní a povolené
+        yield return new WaitUntil(() =>
+            dollHouseVisualizer != null && dollHouseVisualizer.enabled);
+
         Debug.Log("[MenuController] Starting delayed visualization generation from offline data");
-        
+
         bool success = true;
         string errorMessage = "";
-        
+
         // Generate DollHouse (async per room)
         if (dollHouseVisualizer != null && dollHouseVisualizer.enabled)
         {
@@ -541,18 +523,14 @@ public class MenuController : MonoBehaviour
         if (dollHouseVisualizer != null && offlineRooms != null && offlineRooms.Count > 0)
         {
             dollHouseVisualizer.ClearDollHouse();
-            dollHouseVisualizer.scale = 0.3f;
+            dollHouseVisualizer.scale = 0.18f;
             if (dollHouseVisualizer.roomMaterial != null)
             {
                 dollHouseVisualizer.roomMaterial.color = new Color(0.2f, 0.7f, 1f, 0.8f);
             }
             dollHouseVisualizer.GenerateDollHouseFromOfflineData(offlineRooms);
-            // Statická pozice dollhouse (pøípadnì upravte podle potøeby)
-            Vector3 basePos = new Vector3(0, 1.5f, 2.5f);
-            Quaternion baseRot = Quaternion.identity;
-            dollHouseVisualizer.transform.position = basePos;
-            dollHouseVisualizer.transform.rotation = baseRot;
-            Debug.Log($"[MenuController] Dollhouse positioned at {basePos}, scale {dollHouseVisualizer.scale}");
+            // Pozice a rotace se nyní neøeší v kódu, používá se placement objekt ze scény
+            Debug.Log($"[MenuController] Dollhouse generated, scale {dollHouseVisualizer.scale}");
         }
     }
 }
